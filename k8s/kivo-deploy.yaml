@@ -1,0 +1,114 @@
+# kivo — Redis-compatible in-memory data store (single node)
+#
+# Runs kivo as a 1-replica StatefulSet with an attached PVC so the AOF
+# survives pod restarts and rescheduling.
+#
+# ── STORAGE NOTE ─────────────────────────────────────────────────────
+# This manifest does NOT set a storageClassName, so it uses your cluster's
+# default StorageClass. On many clusters (kind, minikube, Docker Desktop,
+# k3s) that default is node-local (hostPath / local) storage. That is fine
+# for testing, but node-local data is LOST if the node is deleted, drained,
+# or crashes.
+#
+# For durable persistence use detachable, network-attached storage, e.g.:
+#   AWS EBS:            storageClassName: gp2        (or gp3 / ebs-csi)
+#   GCP Compute PD:     storageClassName: standard
+#   Azure Disk:         storageClassName: managed-csi
+#   Longhorn:           storageClassName: longhorn
+#   Rook/Ceph:          storageClassName: rook-ceph-block
+#
+# To use one, copy this file, add the storageClassName under
+# volumeClaimTemplates, then kubectl apply -f your-copy.yaml.
+# ─────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kivo
+  labels:
+    app: kivo
+spec:
+  serviceName: kivo-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kivo
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        app: kivo
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: kivo
+          image: ghcr.io/itsmunim/kivo:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - -addr=:6379
+            - -aof=true
+            - -aof-path=/data/appendonly.aof
+            - -aof-sync=always
+          ports:
+            - name: redis
+              containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # TCP probes — the container image has no redis-cli, so probe the port.
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: aof
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: aof
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+        # storageClassName: gp2   # uncomment for durable, detachable storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kivo
+  labels:
+    app: kivo
+spec:
+  type: ClusterIP
+  selector:
+    app: kivo
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kivo-headless
+  labels:
+    app: kivo
+spec:
+  clusterIP: None
+  selector:
+    app: kivo
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379

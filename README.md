@@ -111,54 +111,23 @@ docker run -p 6379:6379 kivo
 
 ## Kubernetes
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: kivo
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: kivo
-  template:
-    metadata:
-      labels:
-        app: kivo
-    spec:
-      containers:
-        - name: kivo
-          image: ghcr.io/itsmunim/kivo:latest
-          ports:
-            - containerPort: 6379
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kivo
-spec:
-  selector:
-    app: kivo
-  ports:
-    - port: 6379
-      targetPort: 6379
-  type: ClusterIP
+A ready-to-apply manifest lives at [`k8s/kivo-deploy.yaml`](k8s/kivo-deploy.yaml). It runs kivo as a 1-replica StatefulSet with an attached PVC, so the AOF survives pod restarts.
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/itsmunim/kivo/main/k8s/kivo-deploy.yaml
 ```
 
-Apply with `kubectl apply -f kivo.yaml`.
+Connect from inside the cluster:
+
+```bash
+kubectl run -it --rm redis-client --image=redis --restart=Never -- redis-cli -h kivo PING
+```
+
+> **Storage note:** the manifest uses your cluster's default StorageClass, which on many clusters is node-local (hostPath). Node-local storage is fine for testing, but data is lost if the node is deleted or crashes. For durable persistence, download `k8s/kivo-deploy.yaml`, set `storageClassName` under `volumeClaimTemplates` to a detachable/network class (AWS EBS `gp2`, GCE PD `standard`, Azure Disk `managed-csi`, Longhorn, Rook...), then apply your copy.
 
 ## GitHub Pages
 
 Visit the project landing page at: **https://itsmunim.github.io/kivo/**
-
-## License
 
 ## License
 
