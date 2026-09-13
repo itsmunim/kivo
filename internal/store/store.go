@@ -62,24 +62,96 @@ type Engine struct {
 	// Background expiration ticker.
 	ticker *time.Ticker
 	stop   chan struct{}
+
+	// maxMemory is the maximum memory in bytes (0 = unlimited).
+	maxMemory int64
+}
+// NewEngine creates a new storage engine with unlimited memory.
+func NewEngine() *Engine {
+	return NewEngineWithMaxMemory(0)
 }
 
-// NewEngine creates a new storage engine and starts the active expiration goroutine.
-func NewEngine() *Engine {
+// NewEngineWithMaxMemory creates a new storage engine and starts the active expiration goroutine.
+func NewEngineWithMaxMemory(maxMemory int64) *Engine {
 	e := &Engine{
-		data: make(map[string]Item),
-		stop: make(chan struct{}),
+		data:      make(map[string]Item),
+		stop:      make(chan struct{}),
+		maxMemory: maxMemory,
 	}
 	e.ticker = time.NewTicker(100 * time.Millisecond)
 	go e.activeExpiration()
 	return e
 }
-
 // Stop halts the background expiration goroutine.
 func (e *Engine) Stop() {
 	e.ticker.Stop()
 	close(e.stop)
 }
+
+// estimateItemSize returns an approximate memory size for an item in bytes.
+func estimateItemSize(key string, item Item) int64 {
+	size := int64(len(key))
+	switch item.Typ {
+	case TypeString:
+		size += int64(len(item.Value.(string)))
+	case TypeList:
+		for _, v := range item.Value.([]string) {
+			size += int64(len(v))
+		}
+	case TypeSet:
+		for m := range item.Value.(map[string]struct{}) {
+			size += int64(len(m))
+		}
+	case TypeHash:
+		for f, v := range item.Value.(map[string]string) {
+			size += int64(len(f) + len(v))
+		}
+	case TypeZSet:
+		for m := range item.Value.(map[string]float64) {
+			size += int64(len(m)) + 8 // float64 = 8 bytes
+		}
+	}
+	return size
+}
+
+// currentMemoryUsage returns the approximate total memory used by all keys.
+func (e *Engine) currentMemoryUsage() int64 {
+	var total int64
+	for k, item := range e.data {
+		total += estimateItemSize(k, item)
+	}
+	return total
+}
+
+// checkMemory returns an error if a write would exceed maxMemory.
+// Must be called with write lock held.
+func (e *Engine) checkMemory(additionalBytes int64) error {
+	if e.maxMemory <= 0 {
+		return nil
+	}
+	if e.currentMemoryUsage()+additionalBytes > e.maxMemory {
+		return fmt.Errorf("OOM command not allowed when used memory > 'maxmemory'")
+	}
+	return nil
+}
+
+// CanWrite returns true if the engine can accept a write of approximately
+// additionalBytes without exceeding maxMemory.
+func (e *Engine) CanWrite(additionalBytes int64) bool {
+	if e.maxMemory <= 0 {
+		return true
+	}
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.currentMemoryUsage()+additionalBytes <= e.maxMemory
+}
+
+// AvailableMemory returns the total system memory in bytes.
+// Returns 0 if it cannot be determined on the current platform.
+func AvailableMemory() (uint64, error) {
+	return availableMemory()
+}
+
 
 // ---------- Key-level operations ----------
 

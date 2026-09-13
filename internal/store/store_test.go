@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -821,5 +822,32 @@ func TestMatchGlob(t *testing.T) {
 	}
 	for _, tt := range tests {
 		assert.Equal(t, tt.want, matchGlob(tt.s, tt.pattern), "matchGlob(%q, %q)", tt.s, tt.pattern)
+	}
+}
+
+
+// --- Memory limit tests ---
+
+func TestMaxMemoryCanWrite(t *testing.T) {
+	e := NewEngineWithMaxMemory(10)
+	defer e.Stop()
+
+	assert.True(t, e.CanWrite(5))
+	assert.False(t, e.CanWrite(15))
+
+	// Write 8 bytes: "key" (3) + "value" (5).
+	e.Set("key", "value", 0)
+
+	// 8 + 3 = 11 > 10, so should be false.
+	assert.False(t, e.CanWrite(3))
+}
+
+func TestMaxMemoryUnlimited(t *testing.T) {
+	e := NewEngine()
+	defer e.Stop()
+
+	// Unlimited memory should always allow writes.
+	for i := 0; i < 1000; i++ {
+		e.Set(fmt.Sprintf("key%d", i), "value", 0)
 	}
 }

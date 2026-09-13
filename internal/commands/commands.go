@@ -125,6 +125,10 @@ func wrongType() resp.Value {
 	return resp.NewError("WRONGTYPE Operation against a key holding the wrong kind of value")
 }
 
+func oomError() resp.Value {
+	return resp.NewError("OOM command not allowed when used memory > 'maxmemory'")
+}
+
 func intValue(n int) resp.Value {
 	return resp.NewInteger(int64(n))
 }
@@ -227,7 +231,11 @@ func cmdSet(e *store.Engine, args []resp.Value) resp.Value {
 		}
 	}
 
+	if !e.CanWrite(int64(len(key) + len(value))) {
+		return oomError()
+	}
 	e.Set(key, value, ttl)
+	return resp.NewSimpleString("OK")
 	return resp.NewSimpleString("OK")
 }
 
@@ -337,7 +345,15 @@ func cmdMSet(e *store.Engine, args []resp.Value) resp.Value {
 	for i, arg := range args {
 		pairs[i] = arg.String()
 	}
+	var estimate int64
+	for _, s := range pairs {
+		estimate += int64(len(s))
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
+	}
 	e.MSet(pairs)
+	return resp.NewSimpleString("OK")
 	return resp.NewSimpleString("OK")
 }
 
@@ -397,7 +413,11 @@ func cmdAppend(e *store.Engine, args []resp.Value) resp.Value {
 	if len(args) != 2 {
 		return wrongArity("APPEND")
 	}
-	return intValue(e.Append(args[0].String(), args[1].String()))
+	value := args[1].String()
+	if !e.CanWrite(int64(len(value))) {
+		return oomError()
+	}
+	return intValue(e.Append(args[0].String(), value))
 }
 
 func cmdStrLen(e *store.Engine, args []resp.Value) resp.Value {
@@ -418,6 +438,13 @@ func cmdLPush(e *store.Engine, args []resp.Value) resp.Value {
 	for i := 1; i < len(args); i++ {
 		values[i-1] = args[i].String()
 	}
+	var estimate int64
+	for _, v := range values {
+		estimate += int64(len(v))
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
+	}
 	return intValue(e.LPush(key, values...))
 }
 
@@ -429,6 +456,13 @@ func cmdRPush(e *store.Engine, args []resp.Value) resp.Value {
 	values := make([]string, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		values[i-1] = args[i].String()
+	}
+	var estimate int64
+	for _, v := range values {
+		estimate += int64(len(v))
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
 	}
 	return intValue(e.RPush(key, values...))
 }
@@ -524,6 +558,13 @@ func cmdSAdd(e *store.Engine, args []resp.Value) resp.Value {
 	members := make([]string, len(args)-1)
 	for i := 1; i < len(args); i++ {
 		members[i-1] = args[i].String()
+	}
+	var estimate int64
+	for _, m := range members {
+		estimate += int64(len(m))
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
 	}
 	return intValue(e.SAdd(key, members...))
 }
@@ -647,6 +688,13 @@ func cmdHSet(e *store.Engine, args []resp.Value) resp.Value {
 	for i := 1; i < len(args); i++ {
 		pairs[i-1] = args[i].String()
 	}
+	var estimate int64
+	for _, s := range pairs {
+		estimate += int64(len(s))
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
+	}
 	return intValue(e.HSet(key, pairs))
 }
 
@@ -747,6 +795,13 @@ func cmdZAdd(e *store.Engine, args []resp.Value) resp.Value {
 			return resp.NewError("ERR value is not a valid float")
 		}
 		members[args[i+1].String()] = score
+	}
+	var estimate int64
+	for m := range members {
+		estimate += int64(len(m)) + 8
+	}
+	if !e.CanWrite(estimate) {
+		return oomError()
 	}
 	return intValue(e.ZAdd(key, members))
 }
