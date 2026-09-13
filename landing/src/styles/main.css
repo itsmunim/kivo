@@ -30,39 +30,27 @@ body {
   overflow-x: hidden;
 }
 
-/* Logo letters */
-.logo-k { color: var(--accent-cyan); }
-.logo-i { color: var(--accent-magenta); }
-.logo-v { color: var(--accent-violet); }
-.logo-o { color: var(--accent-orange); }
+/* Logo letters - muted warm stone */
+.logo-k { color: #b8a898; }
+.logo-i { color: #a89880; }
+.logo-v { color: #988870; }
+.logo-o { color: #887860; }
 
 .logo-large {
-  font-size: 6rem;
-  font-weight: 900;
-  letter-spacing: -0.05em;
+  font-size: 5rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
   line-height: 1;
   margin-bottom: 1.5rem;
-  animation: fadeInUp 0.8s ease-out;
+  animation: fadeInUp 0.6s ease-out;
 }
 
 .logo-large span {
   display: inline-block;
-  text-shadow: 0 0 40px currentColor;
-  animation: letterFloat 3s ease-in-out infinite;
-}
-
-.logo-large span:nth-child(1) { animation-delay: 0s; }
-.logo-large span:nth-child(2) { animation-delay: 0.2s; }
-.logo-large span:nth-child(3) { animation-delay: 0.4s; }
-.logo-large span:nth-child(4) { animation-delay: 0.6s; }
-
-@keyframes letterFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(30px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

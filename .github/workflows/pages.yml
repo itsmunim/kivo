@@ -24,7 +24,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: landing/package-lock.json
 
       - name: Install dependencies
         working-directory: landing
@@ -33,6 +35,11 @@ jobs:
       - name: Build
         working-directory: landing
         run: npm run build
+
+      - name: Verify build output
+        run: |
+          ls -la landing/dist/
+          test -f landing/dist/index.html || exit 1
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
