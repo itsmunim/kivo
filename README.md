@@ -1,6 +1,6 @@
 # kivo
 
-![Coverage](coverage-badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-82.5%25-brightgreen)
 
 A fast, lightweight, Redis-compatible in-memory data store written in Go.
 
@@ -95,10 +95,70 @@ See [BENCHMARKS.md](BENCHMARKS.md) for performance results.
 
 ## Docker
 
+### Pull from GitHub Container Registry
+
+```bash
+docker pull ghcr.io/itsmunim/kivo:latest
+docker run -p 6379:6379 ghcr.io/itsmunim/kivo:latest
+```
+
+### Build from source
+
 ```bash
 docker build -t kivo .
 docker run -p 6379:6379 kivo
 ```
+
+## Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kivo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kivo
+  template:
+    metadata:
+      labels:
+        app: kivo
+    spec:
+      containers:
+        - name: kivo
+          image: ghcr.io/itsmunim/kivo:latest
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kivo
+spec:
+  selector:
+    app: kivo
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+```
+
+Apply with `kubectl apply -f kivo.yaml`.
+
+## GitHub Pages
+
+Visit the project landing page at: **https://itsmunim.github.io/kivo/**
+
+## License
 
 ## License
 
