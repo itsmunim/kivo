@@ -263,7 +263,6 @@ func TestServerType(t *testing.T) {
 	assert.Equal(t, "none", v.String())
 }
 
-
 func TestServerRename(t *testing.T) {
 	_, addr := startTestServer(t)
 
@@ -295,7 +294,6 @@ func TestServerExists(t *testing.T) {
 	v := sendCommand(t, addr, "EXISTS", "a", "missing")
 	assert.Equal(t, int64(1), v.Integer())
 }
-
 
 func TestServerMSetMGet(t *testing.T) {
 	_, addr := startTestServer(t)
@@ -383,4 +381,3 @@ func TestServerWriteError(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	srv.Stop()
 }
-

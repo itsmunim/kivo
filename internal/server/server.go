@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -17,15 +18,15 @@ import (
 
 // Server is the TCP server.
 type Server struct {
-	config    config.Config
-	engine    *store.Engine
-	registry  *commands.Registry
-	aof       *persistence.AOF
-	listener  net.Listener
-	conns     sync.Map // map[net.Conn]struct{}
-	active    int64    // atomic counter for active connections
-	shutdown  int32    // atomic: 1 if shutting down
-	wg        sync.WaitGroup
+	config   config.Config
+	engine   *store.Engine
+	registry *commands.Registry
+	aof      *persistence.AOF
+	listener net.Listener
+	conns    sync.Map // map[net.Conn]struct{}
+	active   int64    // atomic counter for active connections
+	shutdown int32    // atomic: 1 if shutting down
+	wg       sync.WaitGroup
 }
 
 // New creates a new server.
@@ -71,8 +72,22 @@ func (s *Server) Stop() {
 	if s.listener != nil {
 		s.listener.Close()
 	}
+	// Close all active connections to unblock their handlers.
+	// Without this, wg.Wait() below would hang forever if a client
+	// (e.g. interactive redis-cli) is still connected.
+	s.conns.Range(func(k, v interface{}) bool {
+		if conn, ok := k.(net.Conn); ok {
+			_ = conn.Close()
+		}
+		return true
+	})
 	// Wait for all connection handlers to finish.
 	s.wg.Wait()
+	// Flush AOF to disk before returning. Must happen after handlers
+	// finish so no late writes are lost.
+	if s.aof != nil {
+		_ = s.aof.Sync()
+	}
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -131,7 +146,9 @@ func (s *Server) handleConn(conn net.Conn) {
 			for i, arg := range args {
 				cmdArgsStr[i] = arg.String()
 			}
-			_ = s.aof.Write(cmdArgsStr)
+			if err := s.aof.Write(cmdArgsStr); err != nil {
+				fmt.Printf("aof write error: %v\n", err)
+			}
 		}
 
 		if err := writer.WriteValue(result); err != nil {
@@ -147,8 +164,9 @@ func (s *Server) ActiveConns() int64 {
 }
 
 // isWriteCommand returns true if the command modifies data.
+// The command name is normalized to uppercase for the check.
 func isWriteCommand(cmd string) bool {
-	switch cmd {
+	switch strings.ToUpper(cmd) {
 	case "SET", "DEL", "EXPIRE", "PEXPIRE", "PERSIST",
 		"APPEND", "INCR", "DECR", "INCRBY", "DECRBY", "MSET",
 		"LPUSH", "RPUSH", "LPOP", "RPOP", "LREM", "LTRIM",

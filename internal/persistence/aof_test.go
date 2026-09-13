@@ -98,7 +98,6 @@ func TestAOFSyncAlways(t *testing.T) {
 	assert.Greater(t, info.Size(), int64(0))
 }
 
-
 func TestAOFCorruptedReplay(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "appendonly.aof")
@@ -118,7 +117,6 @@ func TestAOFCorruptedReplay(t *testing.T) {
 	})
 	assert.Error(t, err)
 }
-
 
 func TestAOFEverysecSync(t *testing.T) {
 	dir := t.TempDir()

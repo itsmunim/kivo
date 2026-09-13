@@ -5,8 +5,8 @@
 // read-write mutex.
 //
 // Expiration uses two mechanisms:
-//   1. Lazy: check on every read; delete if expired.
-//   2. Active: background goroutine samples keys periodically.
+//  1. Lazy: check on every read; delete if expired.
+//  2. Active: background goroutine samples keys periodically.
 package store
 
 import (
@@ -66,6 +66,7 @@ type Engine struct {
 	// maxMemory is the maximum memory in bytes (0 = unlimited).
 	maxMemory int64
 }
+
 // NewEngine creates a new storage engine with unlimited memory.
 func NewEngine() *Engine {
 	return NewEngineWithMaxMemory(0)
@@ -82,6 +83,7 @@ func NewEngineWithMaxMemory(maxMemory int64) *Engine {
 	go e.activeExpiration()
 	return e
 }
+
 // Stop halts the background expiration goroutine.
 func (e *Engine) Stop() {
 	e.ticker.Stop()
@@ -151,7 +153,6 @@ func (e *Engine) CanWrite(additionalBytes int64) bool {
 func AvailableMemory() (uint64, error) {
 	return availableMemory()
 }
-
 
 // ---------- Key-level operations ----------
 

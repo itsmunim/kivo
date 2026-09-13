@@ -825,7 +825,6 @@ func TestMatchGlob(t *testing.T) {
 	}
 }
 
-
 // --- Memory limit tests ---
 
 func TestMaxMemoryCanWrite(t *testing.T) {
@@ -851,7 +850,6 @@ func TestMaxMemoryUnlimited(t *testing.T) {
 		e.Set(fmt.Sprintf("key%d", i), "value", 0)
 	}
 }
-
 
 func TestAvailableMemory(t *testing.T) {
 	mem, err := AvailableMemory()

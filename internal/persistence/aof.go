@@ -26,9 +26,9 @@ type AOF struct {
 	mu     sync.Mutex
 
 	// Sync strategy: "always", "everysec", "no".
-	sync     string
-	ticker   *time.Ticker
-	stop     chan struct{}
+	sync   string
+	ticker *time.Ticker
+	stop   chan struct{}
 }
 
 // NewAOF creates a new AOF manager.
@@ -67,7 +67,20 @@ func (a *AOF) Close() error {
 	if err := a.writer.Flush(); err != nil {
 		return err
 	}
+	if err := a.file.Sync(); err != nil {
+		return err
+	}
 	return a.file.Close()
+}
+
+// Sync flushes the AOF buffer to disk.
+func (a *AOF) Sync() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err := a.writer.Flush(); err != nil {
+		return err
+	}
+	return a.file.Sync()
 }
 
 // Write appends a command to the AOF.

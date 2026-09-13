@@ -236,7 +236,6 @@ func cmdSet(e *store.Engine, args []resp.Value) resp.Value {
 	}
 	e.Set(key, value, ttl)
 	return resp.NewSimpleString("OK")
-	return resp.NewSimpleString("OK")
 }
 
 func cmdDel(e *store.Engine, args []resp.Value) resp.Value {
@@ -353,7 +352,6 @@ func cmdMSet(e *store.Engine, args []resp.Value) resp.Value {
 		return oomError()
 	}
 	e.MSet(pairs)
-	return resp.NewSimpleString("OK")
 	return resp.NewSimpleString("OK")
 }
 

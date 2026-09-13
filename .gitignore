@@ -5,7 +5,9 @@
 *.so
 *.dylib
 kivo
+kivo
 kivo-bench
+kivo-test
 
 # Test binary, built with `go test -c`
 *.test

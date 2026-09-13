@@ -323,7 +323,6 @@ func TestWrongArity(t *testing.T) {
 	assert.Contains(t, v.Error(), "wrong number of arguments")
 }
 
-
 // --- Additional command coverage tests ---
 
 func TestExpireAndTTL(t *testing.T) {
@@ -648,7 +647,6 @@ func TestAuthWrongArity(t *testing.T) {
 	v := auth(e, []resp.Value{})
 	assert.Equal(t, resp.Error, v.Type())
 }
-
 
 func TestAppendCommand(t *testing.T) {
 	e := newEngine(t)

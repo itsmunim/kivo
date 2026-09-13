@@ -1,11 +1,12 @@
 // Package resp implements the Redis Serialization Protocol (RESP2).
 //
 // RESP2 types:
-//   +OK\r\n           -> Simple String
-//   -ERR ...\r\n     -> Error
-//   :123\r\n         -> Integer
-//   $5\r\nhello\r\n -> Bulk String
-//   *2\r\n...       -> Array
+//
+//	+OK\r\n           -> Simple String
+//	-ERR ...\r\n     -> Error
+//	:123\r\n         -> Integer
+//	$5\r\nhello\r\n -> Bulk String
+//	*2\r\n...       -> Array
 //
 // The protocol is line-oriented with \r\n terminators.
 // Bulk strings and arrays are prefixed with a length.
@@ -24,10 +25,10 @@ import (
 // Value is a parsed RESP value.
 type Value struct {
 	typ   Type
-	null  bool     // true for null bulk strings and null arrays
-	str   string   // SimpleString, Error, BulkString
-	num   int64    // Integer
-	array []Value  // Array elements
+	null  bool    // true for null bulk strings and null arrays
+	str   string  // SimpleString, Error, BulkString
+	num   int64   // Integer
+	array []Value // Array elements
 }
 
 // Type represents a RESP value type.
@@ -42,21 +43,21 @@ const (
 )
 
 // Constructors
-func NewSimpleString(s string) Value   { return Value{typ: SimpleString, str: s} }
-func NewError(s string) Value          { return Value{typ: Error, str: s} }
-func NewInteger(n int64) Value         { return Value{typ: Integer, num: n} }
-func NewBulkString(s string) Value     { return Value{typ: BulkString, str: s} }
-func NewNullBulkString() Value         { return Value{typ: BulkString, null: true} }
-func NewArray(vs ...Value) Value       { return Value{typ: Array, array: vs} }
-func NewNullArray() Value              { return Value{typ: Array, null: true} }
+func NewSimpleString(s string) Value { return Value{typ: SimpleString, str: s} }
+func NewError(s string) Value        { return Value{typ: Error, str: s} }
+func NewInteger(n int64) Value       { return Value{typ: Integer, num: n} }
+func NewBulkString(s string) Value   { return Value{typ: BulkString, str: s} }
+func NewNullBulkString() Value       { return Value{typ: BulkString, null: true} }
+func NewArray(vs ...Value) Value     { return Value{typ: Array, array: vs} }
+func NewNullArray() Value            { return Value{typ: Array, null: true} }
 
 // Getters
-func (v Value) Type() Type             { return v.typ }
-func (v Value) String() string         { return v.str }
-func (v Value) Error() string          { return v.str }
-func (v Value) Integer() int64         { return v.num }
-func (v Value) Array() []Value         { return v.array }
-func (v Value) IsNull() bool           { return v.null }
+func (v Value) Type() Type     { return v.typ }
+func (v Value) String() string { return v.str }
+func (v Value) Error() string  { return v.str }
+func (v Value) Integer() int64 { return v.num }
+func (v Value) Array() []Value { return v.array }
+func (v Value) IsNull() bool   { return v.null }
 
 // String returns a human-readable representation for debugging.
 func (v Value) DebugString() string {
