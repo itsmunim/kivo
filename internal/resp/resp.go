@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 // Value is a parsed RESP value.
@@ -92,6 +93,7 @@ func NewReader(r io.Reader) *Reader {
 }
 
 // ReadValue reads and parses the next RESP value.
+// It supports both RESP arrays and inline commands (space-separated text lines).
 func (r *Reader) ReadValue() (Value, error) {
 	// Read the type byte.
 	b, err := r.reader.ReadByte()
@@ -111,7 +113,11 @@ func (r *Reader) ReadValue() (Value, error) {
 	case Array:
 		return r.readArray()
 	default:
-		return Value{}, fmt.Errorf("resp: unknown type byte: %q", b)
+		// Inline command: put the byte back and read the whole line.
+		if err := r.reader.UnreadByte(); err != nil {
+			return Value{}, err
+		}
+		return r.readInline()
 	}
 }
 
@@ -202,6 +208,25 @@ func (r *Reader) readArray() (Value, error) {
 			return Value{}, err
 		}
 		values[i] = v
+	}
+	return NewArray(values...), nil
+}
+
+// readInline reads a space-separated command line and converts it to a RESP array.
+// Example: "GET foo\r\n" -> Array[BulkString("GET"), BulkString("foo")]
+func (r *Reader) readInline() (Value, error) {
+	line, err := r.readLine()
+	if err != nil {
+		return Value{}, err
+	}
+	// Split by spaces. We don't handle quoted arguments for inline commands.
+	parts := strings.Fields(string(line))
+	if len(parts) == 0 {
+		return NewArray(), nil
+	}
+	values := make([]Value, len(parts))
+	for i, p := range parts {
+		values[i] = NewBulkString(p)
 	}
 	return NewArray(values...), nil
 }

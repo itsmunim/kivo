@@ -318,10 +318,15 @@ func TestReadPipelinedValues(t *testing.T) {
 // --- Error Cases ---
 
 func TestReadUnknownTypeByte(t *testing.T) {
+	// With inline command support, '?' is treated as start of an inline command.
+	// This test verifies that non-RESP type bytes are handled as inline.
 	r := NewReader(strings.NewReader("?unknown\r\n"))
-	_, err := r.ReadValue()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown type byte")
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v.Type())
+	arr := v.Array()
+	require.Len(t, arr, 1)
+	assert.Equal(t, "?unknown", arr[0].String())
 }
 
 func TestReadInvalidInteger(t *testing.T) {
@@ -412,4 +417,75 @@ func BenchmarkReadArray(b *testing.B) {
 		r := NewReader(bytes.NewReader(data))
 		_, _ = r.ReadValue()
 	}
+}
+
+// --- Inline Command Tests ---
+
+func TestReadInlineSimple(t *testing.T) {
+	r := NewReader(strings.NewReader("PING\r\n"))
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v.Type())
+	arr := v.Array()
+	require.Len(t, arr, 1)
+	assert.Equal(t, "PING", arr[0].String())
+}
+
+func TestReadInlineWithArgs(t *testing.T) {
+	r := NewReader(strings.NewReader("GET mykey\r\n"))
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v.Type())
+	arr := v.Array()
+	require.Len(t, arr, 2)
+	assert.Equal(t, "GET", arr[0].String())
+	assert.Equal(t, "mykey", arr[1].String())
+}
+
+func TestReadInlineMultipleArgs(t *testing.T) {
+	r := NewReader(strings.NewReader("SET mykey myvalue\r\n"))
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v.Type())
+	arr := v.Array()
+	require.Len(t, arr, 3)
+	assert.Equal(t, "SET", arr[0].String())
+	assert.Equal(t, "mykey", arr[1].String())
+	assert.Equal(t, "myvalue", arr[2].String())
+}
+
+func TestReadInlineEmpty(t *testing.T) {
+	r := NewReader(strings.NewReader("\r\n"))
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v.Type())
+	assert.Empty(t, v.Array())
+}
+
+func TestReadInlineMixedWithRESP(t *testing.T) {
+	// Inline PING followed by RESP array GET.
+	input := "PING\r\n*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n"
+	r := NewReader(strings.NewReader(input))
+
+	v1, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v1.Type())
+	assert.Equal(t, "PING", v1.Array()[0].String())
+
+	v2, err := r.ReadValue()
+	require.NoError(t, err)
+	assert.Equal(t, Array, v2.Type())
+	assert.Equal(t, "GET", v2.Array()[0].String())
+}
+
+func TestReadInlineTelnetStyle(t *testing.T) {
+	// Simulate telnet-style commands with multiple spaces.
+	r := NewReader(strings.NewReader("SET   key   value\r\n"))
+	v, err := r.ReadValue()
+	require.NoError(t, err)
+	arr := v.Array()
+	require.Len(t, arr, 3)
+	assert.Equal(t, "SET", arr[0].String())
+	assert.Equal(t, "key", arr[1].String())
+	assert.Equal(t, "value", arr[2].String())
 }

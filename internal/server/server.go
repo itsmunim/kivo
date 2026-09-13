@@ -40,12 +40,16 @@ func New(cfg config.Config, engine *store.Engine, registry *commands.Registry, a
 
 // Start begins accepting connections.
 func (s *Server) Start() error {
-	ln, err := net.Listen("tcp", s.config.Addr)
-	if err != nil {
-		return fmt.Errorf("listen %s: %w", s.config.Addr, err)
+	ln := s.listener
+	if ln == nil {
+		var err error
+		ln, err = net.Listen("tcp", s.config.Addr)
+		if err != nil {
+			return fmt.Errorf("listen %s: %w", s.config.Addr, err)
+		}
+		s.listener = ln
 	}
-	s.listener = ln
-	fmt.Printf("kivo listening on %s\n", s.config.Addr)
+	fmt.Printf("kivo listening on %s\n", ln.Addr().String())
 
 	for {
 		conn, err := ln.Accept()

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 kivo
+kivo-bench
 
 # Test binary, built with `go test -c`
 *.test
@@ -12,6 +13,8 @@ kivo
 # Output of the go coverage tool
 *.out
 coverage.html
+coverage.txt
+coverage-badge.svg
 
 # Go workspace file
 go.work
@@ -33,6 +36,7 @@ Thumbs.db
 # Project specific
 appendonly.aof
 *.aof
+benchmark-results.md
 
 # Build artifacts
 dist/

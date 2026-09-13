@@ -851,3 +851,60 @@ func TestMaxMemoryUnlimited(t *testing.T) {
 		e.Set(fmt.Sprintf("key%d", i), "value", 0)
 	}
 }
+
+
+func TestAvailableMemory(t *testing.T) {
+	mem, err := AvailableMemory()
+	// Should not error on supported platforms.
+	assert.NoError(t, err)
+	// On Linux/macOS, should return >0. On others, returns 0.
+	assert.GreaterOrEqual(t, mem, uint64(0))
+}
+
+func TestEstimateItemSize(t *testing.T) {
+	// String
+	size := estimateItemSize("key", Item{Value: "value", Typ: TypeString})
+	assert.Equal(t, int64(3+5), size) // "key" + "value"
+
+	// List
+	size = estimateItemSize("key", Item{Value: []string{"a", "bb"}, Typ: TypeList})
+	assert.Equal(t, int64(3+1+2), size)
+
+	// Set
+	size = estimateItemSize("key", Item{Value: map[string]struct{}{"a": {}, "bb": {}}, Typ: TypeSet})
+	assert.Equal(t, int64(3+1+2), size)
+
+	// Hash
+	size = estimateItemSize("key", Item{Value: map[string]string{"f": "v"}, Typ: TypeHash})
+	assert.Equal(t, int64(3+1+1), size)
+
+	// ZSet
+	size = estimateItemSize("key", Item{Value: map[string]float64{"m": 1.0}, Typ: TypeZSet})
+	assert.Equal(t, int64(3+1+8), size)
+}
+
+func TestCheckMemory(t *testing.T) {
+	e := NewEngineWithMaxMemory(10)
+	defer e.Stop()
+
+	// Should pass when under limit.
+	err := e.checkMemory(5)
+	assert.NoError(t, err)
+
+	// Fill memory.
+	e.Set("key", "value", 0) // 8 bytes
+
+	// Should fail when over limit.
+	err = e.checkMemory(5)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "OOM")
+}
+
+func TestCheckMemoryUnlimited(t *testing.T) {
+	e := NewEngine()
+	defer e.Stop()
+
+	// Unlimited should always allow.
+	err := e.checkMemory(1000000)
+	assert.NoError(t, err)
+}

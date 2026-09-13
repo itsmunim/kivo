@@ -367,7 +367,14 @@ At startup, kivo checks whether `maxmemory` exceeds available system memory and 
 
 **Linux:** Uses `syscall.Sysinfo` to read `Totalram` from the kernel. This is the same approach Redis uses internally.
 
-**Other platforms (macOS, Windows, BSD):** Returns 0 with no error, effectively skipping the check. The process starts normally.
+**macOS:** Uses `syscall.Sysctl("hw.memsize")` to read total physical memory. This is a native Darwin syscall, no cgo required.
+
+**Other platforms (Windows, BSD):** Returns 0 with no error, effectively skipping the check. The process starts normally.
+
+**Why a no-op on Windows/BSD?**
+- Windows uses a completely different API (WMI/GlobalMemoryStatusEx).
+- BSD variants have different sysctl names.
+- The check is a **best-effort warning**, not a hard requirement. Redis itself doesn't refuse to start when it can't determine available memory.
 
 **Why a no-op on non-Linux?**
 - macOS has no `sysinfo` syscall. Detecting total memory requires `sysctl` or cgo, adding complexity.
@@ -376,13 +383,18 @@ At startup, kivo checks whether `maxmemory` exceeds available system memory and 
 
 **Build tags used:**
 ```
+internal/store/memory_linux.go   // go:build linux
+internal/store/memory_darwin.go  // go:build darwin
+internal/store/memory_other.go   // go:build !linux && !darwin
+```
+```
 internal/store/memory_linux.go  // go:build linux
 internal/store/memory_other.go  // go:build !linux
 ```
 
 This keeps the code clean and avoids conditional compilation complexity in the main store logic.
 
-**Code:** `internal/store/memory_linux.go`, `internal/store/memory_other.go`.
+**Code:** `internal/store/memory_linux.go`, `internal/store/memory_darwin.go`, `internal/store/memory_other.go`.
 
 ---
 

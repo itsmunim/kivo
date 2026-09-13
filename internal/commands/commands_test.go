@@ -648,3 +648,157 @@ func TestAuthWrongArity(t *testing.T) {
 	v := auth(e, []resp.Value{})
 	assert.Equal(t, resp.Error, v.Type())
 }
+
+
+func TestAppendCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	appendCmd, _ := r.Get("APPEND")
+	get, _ := r.Get("GET")
+
+	v := appendCmd(e, []resp.Value{
+		resp.NewBulkString("key"),
+		resp.NewBulkString("hello"),
+	})
+	assert.Equal(t, int64(5), v.Integer())
+
+	v = appendCmd(e, []resp.Value{
+		resp.NewBulkString("key"),
+		resp.NewBulkString(" world"),
+	})
+	assert.Equal(t, int64(11), v.Integer())
+
+	v = get(e, []resp.Value{resp.NewBulkString("key")})
+	assert.Equal(t, "hello world", v.String())
+}
+
+func TestStrLenCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	set, _ := r.Get("SET")
+	strlen, _ := r.Get("STRLEN")
+
+	set(e, []resp.Value{resp.NewBulkString("key"), resp.NewBulkString("hello")})
+
+	v := strlen(e, []resp.Value{resp.NewBulkString("key")})
+	assert.Equal(t, int64(5), v.Integer())
+
+	v = strlen(e, []resp.Value{resp.NewBulkString("missing")})
+	assert.Equal(t, int64(0), v.Integer())
+}
+
+func TestDecrCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	decr, _ := r.Get("DECR")
+
+	v := decr(e, []resp.Value{resp.NewBulkString("counter")})
+	assert.Equal(t, int64(-1), v.Integer())
+}
+
+func TestDecrByCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	decrby, _ := r.Get("DECRBY")
+
+	v := decrby(e, []resp.Value{
+		resp.NewBulkString("counter"),
+		resp.NewBulkString("5"),
+	})
+	assert.Equal(t, int64(-5), v.Integer())
+}
+
+func TestIncrByCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	incrby, _ := r.Get("INCRBY")
+
+	v := incrby(e, []resp.Value{
+		resp.NewBulkString("counter"),
+		resp.NewBulkString("10"),
+	})
+	assert.Equal(t, int64(10), v.Integer())
+}
+
+func TestExistsCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	set, _ := r.Get("SET")
+	exists, _ := r.Get("EXISTS")
+
+	set(e, []resp.Value{resp.NewBulkString("a"), resp.NewBulkString("1")})
+
+	v := exists(e, []resp.Value{
+		resp.NewBulkString("a"),
+		resp.NewBulkString("b"),
+	})
+	assert.Equal(t, int64(1), v.Integer())
+}
+
+func TestPersistCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	set, _ := r.Get("SET")
+	expire, _ := r.Get("EXPIRE")
+	ttl, _ := r.Get("TTL")
+	persist, _ := r.Get("PERSIST")
+
+	set(e, []resp.Value{resp.NewBulkString("key"), resp.NewBulkString("val")})
+	expire(e, []resp.Value{resp.NewBulkString("key"), resp.NewBulkString("10")})
+
+	v := persist(e, []resp.Value{resp.NewBulkString("key")})
+	assert.Equal(t, int64(1), v.Integer())
+
+	v = ttl(e, []resp.Value{resp.NewBulkString("key")})
+	assert.Equal(t, int64(-1), v.Integer())
+}
+
+func TestPersistMissingKey(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	persist, _ := r.Get("PERSIST")
+
+	v := persist(e, []resp.Value{resp.NewBulkString("missing")})
+	assert.Equal(t, int64(0), v.Integer())
+}
+
+func TestRenameCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	set, _ := r.Get("SET")
+	rename, _ := r.Get("RENAME")
+	get, _ := r.Get("GET")
+
+	set(e, []resp.Value{resp.NewBulkString("old"), resp.NewBulkString("val")})
+
+	v := rename(e, []resp.Value{
+		resp.NewBulkString("old"),
+		resp.NewBulkString("new"),
+	})
+	assert.Equal(t, "OK", v.String())
+
+	v = get(e, []resp.Value{resp.NewBulkString("new")})
+	assert.Equal(t, "val", v.String())
+}
+
+func TestRenameNXCommand(t *testing.T) {
+	e := newEngine(t)
+	r := NewRegistry()
+	set, _ := r.Get("SET")
+	renamenx, _ := r.Get("RENAMENX")
+
+	set(e, []resp.Value{resp.NewBulkString("a"), resp.NewBulkString("1")})
+	set(e, []resp.Value{resp.NewBulkString("b"), resp.NewBulkString("2")})
+
+	v := renamenx(e, []resp.Value{
+		resp.NewBulkString("a"),
+		resp.NewBulkString("b"),
+	})
+	assert.Equal(t, int64(0), v.Integer())
+
+	v = renamenx(e, []resp.Value{
+		resp.NewBulkString("a"),
+		resp.NewBulkString("c"),
+	})
+	assert.Equal(t, int64(1), v.Integer())
+}
