@@ -2,15 +2,18 @@
 
 # --- Stage 1: build the web console (React SPA) ---
 FROM node:22-alpine AS webui
-WORKDIR /app
+WORKDIR /app/webui
 COPY webui/package.json webui/package-lock.json* ./
-RUN npm ci --omit=dev || npm install
+RUN npm ci
 COPY webui/ .
+# Vite outputs to ../internal/webui/dist (i.e. /app/internal/webui/dist), which
+# is where the Go builder stage copies the embedded UI from.
+RUN npm run build
 # Vite outputs to ../internal/webui/dist (embedded by Go).
 RUN npm run build
 
 # --- Stage 2: build the kivo binary with the UI embedded ---
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache git
 COPY go.mod go.sum ./
