@@ -29,14 +29,14 @@ var distFS embed.FS
 type Server struct {
 	addr     string
 	engine   *store.Engine
-	registry *commands.Registry
+	executor *commands.Executor
 	httpSrv  *http.Server
 	mux      *http.ServeMux
 }
 
 // New creates a web console server bound to a TCP address (e.g. ":3001").
-func New(addr string, engine *store.Engine, registry *commands.Registry) *Server {
-	s := &Server{addr: addr, engine: engine, registry: registry, mux: http.NewServeMux()}
+func New(addr string, engine *store.Engine, executor *commands.Executor) *Server {
+	s := &Server{addr: addr, engine: engine, executor: executor, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -144,22 +144,8 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handler, ok := s.registry.Get(args[0])
-	if !ok {
-		writeJSON(w, commandResponse{
-			Command: req.Command,
-			Result:  errorResult(fmt.Sprintf("ERR unknown command '%s'", args[0])),
-		})
-		return
-	}
-
-	cmdArgs := make([]resp.Value, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		cmdArgs[i-1] = resp.NewBulkString(args[i])
-	}
-
 	start := time.Now()
-	result := handler(s.engine, cmdArgs)
+	result := s.executor.Execute(args)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	writeJSON(w, commandResponse{

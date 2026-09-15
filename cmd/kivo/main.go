@@ -43,21 +43,11 @@ func main() {
 			fmt.Printf("WARNING: maxmemory (%d bytes) exceeds available system memory (%d bytes)\n", cfg.MaxMemory, avail)
 		}
 	}
-
 	// Initialize command registry.
 	registry := commands.NewRegistry()
 
-	// Web console server (embedded React app) on its own HTTP port.
-	var web *webui.Server
-	if cfg.WebUIEnabled {
-		web = webui.New(cfg.WebUIAddr, engine, registry)
-		if err := web.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "webui error: %v\n", err)
-			os.Exit(1)
-		}
-	}
-
-	// Initialize AOF persistence.
+	// Initialize AOF persistence FIRST so the executor and web console
+	// below share the same appender.
 	var aof *persistence.AOF
 	if cfg.AOFEnabled {
 		var err error
@@ -68,7 +58,6 @@ func main() {
 		}
 		defer aof.Close()
 
-		// Replay AOF on startup.
 		aofAbs, err := filepath.Abs(cfg.AOFPath)
 		if err != nil {
 			aofAbs = cfg.AOFPath
@@ -76,7 +65,6 @@ func main() {
 		fmt.Printf("AOF: %s (sync=%s)\n", aofAbs, cfg.AOFSync)
 		fmt.Printf("replaying AOF from %s...\n", aofAbs)
 
-		// Replay AOF on startup.
 		count := 0
 		err = aof.Replay(func(args []string) error {
 			handler, ok := registry.Get(args[0])
@@ -96,6 +84,20 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("replayed %d commands from %s\n", count, aofAbs)
+	}
+
+	// Shared executor: both the TCP server and the web console run commands
+	// through this, so every write path is persisted to the AOF exactly once.
+	executor := commands.NewExecutor(engine, registry, aof)
+
+	// Web console server (embedded React app) on its own HTTP port.
+	var web *webui.Server
+	if cfg.WebUIEnabled {
+		web = webui.New(cfg.WebUIAddr, engine, executor)
+		if err := web.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "webui error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Create server.

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Primary SEO -->
+    <title>Web Console — Try kivo commands live in your browser</title>
+    <meta name="description" content="A guided tour of kivo's web console: browse keys and run Redis commands live at localhost:3001 — no redis-cli or client library needed. Full command test suite with expected results." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://itsmunim.github.io/kivo/web-console.html" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="kivo" />
+    <meta property="og:title" content="Web Console — Try kivo commands live in your browser" />
+    <meta property="og:description" content="Browse keys and run Redis commands live against kivo at localhost:3001 — no redis-cli needed." />
+    <meta property="og:url" content="https://itsmunim.github.io/kivo/web-console.html" />
+    <meta property="og:image" content="https://itsmunim.github.io/kivo/kivo-og.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Web Console — Try kivo commands live in your browser" />
+    <meta name="twitter:image" content="https://itsmunim.github.io/kivo/kivo-og.png" />
+
+    <!-- Icons & theme -->
+    <link rel="icon" type="image/svg+xml" href="/kivo/favicon.svg" />
+    <meta name="theme-color" content="#0a0a0f" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="page">
+      <nav class="nav">
+        <div class="nav-inner">
+          <a href="index.html" class="logo" aria-label="kivo">
+            <span class="resp-word">kivo</span><span class="resp-cursor"></span>
+          </a>
+          <div class="nav-links">
+            <a href="index.html#features">Features</a>
+            <a href="index.html#docker">Docker</a>
+            <a href="index.html#kubernetes">Kubernetes</a>
+            <a href="index.html#faq">FAQ</a>
+            <a href="https://github.com/itsmunim/kivo" target="_blank">GitHub</a>
+          </div>
+        </div>
+      </nav>
+
+      <header class="doc-hero">
+        <div class="container">
+          <div class="logo-resp" aria-label="kivo">
+            <span class="resp-prompt">$</span>
+            <span class="resp-word">kivo</span><span class="resp-cursor"></span>
+          </div>
+          <h1>Web Console — try it in your browser</h1>
+          <p class="tagline">Start kivo, open <code>http://localhost:3001</code>, and paste any command below. Results render RESP-style (<code>+OK</code>, <code>-ERR</code>, <code>:42</code>, <code>"value"</code>, arrays). No <code>redis-cli</code>. No client library. Nothing to install.</p>
+          <div class="hero-cta">
+            <a href="index.html" class="btn btn-secondary">← Back to kivo</a>
+          </div>
+        </div>
+      </header>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>How to use</h2>
+          <ol class="steps">
+            <li>Run <code>go run ./cmd/kivo</code> (or <code>docker run -p 6379:6379 -p 3001:3001 ghcr.io/itsmunim/kivo</code>).</li>
+            <li>Open <code>http://localhost:3001</code> in your browser.</li>
+            <li>Paste the commands below into the terminal, one at a time (or in a batch).</li>
+            <li>The <strong>keys panel</strong> on the left shows every key with a type badge and TTL; click a key to <code>GET</code> it. It refreshes every 5 seconds.</li>
+            <li>Press <strong>↑/↓</strong> to recall previous commands.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>1 · Connection &amp; sanity</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>PING</code></td><td class="expect">+PONG</td></tr>
+              <tr><td><code>ECHO "hi"</code></td><td class="expect">"hi"</td></tr>
+              <tr><td><code>DBSIZE</code></td><td class="expect">:0 (an empty key count)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>2 · Strings</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>SET name "alice smith"</code></td><td class="expect">+OK</td></tr>
+              <tr><td><code>GET name</code></td><td class="expect">"alice smith"</td></tr>
+              <tr><td><code>APPEND name "!"</code></td><td class="expect">:12 (new length)</td></tr>
+              <tr><td><code>STRLEN name</code></td><td class="expect">:12</td></tr>
+              <tr><td><code>SET counter 10</code></td><td class="expect">+OK</td></tr>
+              <tr><td><code>INCR counter</code></td><td class="expect">:11</td></tr>
+              <tr><td><code>INCRBY counter 5</code></td><td class="expect">:16</td></tr>
+              <tr><td><code>DECR counter</code></td><td class="expect">:15</td></tr>
+              <tr><td><code>MSET a 1 b 2 c 3</code></td><td class="expect">+OK</td></tr>
+              <tr><td><code>MGET a b c</code></td><td class="expect">array "1","2","3"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>3 · Lists</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>RPUSH tasks "write code" "review pr" "deploy"</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>LPUSH tasks "kickoff"</code></td><td class="expect">:4 (now at head)</td></tr>
+              <tr><td><code>LRANGE tasks 0 -1</code></td><td class="expect">array of all 4</td></tr>
+              <tr><td><code>LRANGE tasks 0 1</code></td><td class="expect">first 2 items</td></tr>
+              <tr><td><code>LLEN tasks</code></td><td class="expect">:4</td></tr>
+              <tr><td><code>LINDEX tasks 1</code></td><td class="expect">"write code"</td></tr>
+              <tr><td><code>RPOP tasks</code></td><td class="expect">"deploy"</td></tr>
+              <tr><td><code>LPOP tasks</code></td><td class="expect">"kickoff"</td></tr>
+              <tr><td><code>LREM tasks 1 "review pr"</code></td><td class="expect">:1</td></tr>
+              <tr><td><code>LTRIM tasks 0 1</code></td><td class="expect">+OK (keeps 2)</td></tr>
+            </tbody>
+          </table>
+          <div class="note"><strong>Note:</strong> if you see the key in the panel but not immediately after a write, that is the 5-second panel refresh — hit the refresh button or wait.</div>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>4 · Sets</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>SADD tags go redis cache</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>SADD tags go</code></td><td class="expect">:0 (already a member)</td></tr>
+              <tr><td><code>SMEMBERS tags</code></td><td class="expect">array of 3</td></tr>
+              <tr><td><code>SISMEMBER tags redis</code></td><td class="expect">:1</td></tr>
+              <tr><td><code>SISMEMBER tags rust</code></td><td class="expect">:0</td></tr>
+              <tr><td><code>SCARD tags</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>SPOP tags</code></td><td class="expect">one random member</td></tr>
+              <tr><td><code>SADD a 1 2 3</code> &nbsp;·&nbsp; <code>SADD b 2 3 4</code></td><td class="expect">:3 each</td></tr>
+              <tr><td><code>SINTER a b</code></td><td class="expect">"2","3"</td></tr>
+              <tr><td><code>SUNION a b</code></td><td class="expect">"1","2","3","4"</td></tr>
+              <tr><td><code>SDIFF a b</code></td><td class="expect">"1"</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>5 · Hashes</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>HSET user:1 name "Alice" email "a@x.io" age 30</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>HGET user:1 name</code></td><td class="expect">"Alice"</td></tr>
+              <tr><td><code>HMGET user:1 name age</code></td><td class="expect">"Alice","30"</td></tr>
+              <tr><td><code>HGETALL user:1</code></td><td class="expect">flat array name/Alice/email/…</td></tr>
+              <tr><td><code>HKEYS user:1</code></td><td class="expect">name,email,age</td></tr>
+              <tr><td><code>HVALS user:1</code></td><td class="expect">Alice,a@x.io,30</td></tr>
+              <tr><td><code>HEXISTS user:1 email</code></td><td class="expect">:1</td></tr>
+              <tr><td><code>HLEN user:1</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>HINCRBY user:1 age 1</code></td><td class="expect">-ERR (not in v1 command set — expected)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>6 · Sorted Sets (leaderboard)</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>ZADD board 100 alice 200 bob 150 carol</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>ZSCORE board alice</code></td><td class="expect">"100"</td></tr>
+              <tr><td><code>ZRANGE board 0 -1 WITHSCORES</code></td><td class="expect">alice/100, carol/150, bob/200 (ascending)</td></tr>
+              <tr><td><code>ZREVRANGE board 0 2</code></td><td class="expect">bob,carol,alice (top 3)</td></tr>
+              <tr><td><code>ZRANGEBYSCORE board 150 200</code></td><td class="expect">carol,bob</td></tr>
+              <tr><td><code>ZINCRBY board 50 alice</code></td><td class="expect">"150"</td></tr>
+              <tr><td><code>ZCARD board</code></td><td class="expect">:3</td></tr>
+              <tr><td><code>ZCOUNT board 100 150</code></td><td class="expect">:2</td></tr>
+              <tr><td><code>ZREMRANGEBYSCORE board 160 1000</code></td><td class="expect">:1 (removes bob)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>7 · Keys &amp; expiration</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>SET temp value EX 5</code></td><td class="expect">+OK</td></tr>
+              <tr><td><code>TTL temp</code></td><td class="expect">:4 or :5 (counts down)</td></tr>
+              <tr><td><code>PEXPIRE temp 3000</code></td><td class="expect">:1</td></tr>
+              <tr><td><code>PTTL temp</code></td><td class="expect">~3000, decreasing</td></tr>
+              <tr><td><code>PERSIST temp</code></td><td class="expect">:1 (removes TTL)</td></tr>
+              <tr><td><code>TTL temp</code></td><td class="expect">:-1 (no expiry)</td></tr>
+              <tr><td><code>EXISTS temp</code></td><td class="expect">:1</td></tr>
+              <tr><td><code>RENAME temp temp2</code></td><td class="expect">+OK</td></tr>
+              <tr><td><code>TYPE temp2</code></td><td class="expect">string</td></tr>
+              <tr><td><code>TYPE tasks</code></td><td class="expect">list</td></tr>
+              <tr><td><code>TYPE user:1</code></td><td class="expect">hash</td></tr>
+              <tr><td><code>KEYS *</code></td><td class="expect">all keys</td></tr>
+              <tr><td><code>KEYS t*</code></td><td class="expect">tasks, temp2, tags…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="doc-section">
+        <div class="container">
+          <h2>8 · Errors &amp; edge cases</h2>
+          <table class="cmd-table">
+            <thead><tr><th>Command</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td><code>GET missingkey</code></td><td class="expect">(nil)</td></tr>
+              <tr><td><code>LPUSH 42</code></td><td class="expect">-ERR wrong number of arguments</td></tr>
+              <tr><td><code>BOGUSCMD x</code></td><td class="expect">-ERR unknown command</td></tr>
+              <tr><td><code>LPOP name</code></td><td class="expect">-ERR WRONGTYPE (name is a string)</td></tr>
+              <tr><td><code>FLUSHDB</code></td><td class="expect">+OK (nuclear reset — clears all keys)</td></tr>
+            </tbody>
+          </table>
+          <div class="note"><strong>Tip:</strong> after <code>FLUSHDB</code> the keys panel empties and <code>DBSIZE</code> returns <code>:0</code>. Any unexpected <code>-ERR</code> elsewhere is a bug — report it at <a href="https://github.com/itsmunim/kivo/issues" target="_blank" rel="noopener">github.com/itsmunim/kivo/issues</a>.</div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <div class="container">
+          <div class="footer-logo">
+            <span class="resp-word">kivo</span><span class="resp-cursor"></span>
+          </div>
+          <p>MIT Licensed · Built with Go</p>
+          <div class="footer-links">
+            <a href="https://github.com/itsmunim/kivo" target="_blank">GitHub</a>
+            <a href="https://github.com/itsmunim/kivo/issues" target="_blank">Issues</a>
+            <a href="https://github.com/itsmunim/kivo/blob/main/plans/v1-design.md" target="_blank">Design Doc</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/web-console.js"></script>
+  </body>
+</html>

@@ -5,11 +5,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/itsmunim/kivo/internal/commands"
+	"github.com/itsmunim/kivo/internal/persistence"
 	"github.com/itsmunim/kivo/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +23,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 	e := store.NewEngine()
 	t.Cleanup(e.Stop)
 	r := commands.NewRegistry()
-	s := New(":0", e, r)
+	ex := commands.NewExecutor(e, r, nil)
+	s := New(":0", e, ex)
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
 	return ts
@@ -177,4 +181,40 @@ func TestCommandInvalidMethod(t *testing.T) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	assert.Equal(t, http.StatusMethodNotAllowed, res.StatusCode)
+}
+
+// TestWebConsoleWritesAOF is the regression test for the bug where commands
+// run from the web console mutated the store but never reached the AOF
+// (the web console called handlers directly, bypassing the server's AOF
+// write path), so data was lost on restart.
+func TestWebConsoleWritesAOF(t *testing.T) {
+	e := store.NewEngine()
+	t.Cleanup(e.Stop)
+	r := commands.NewRegistry()
+
+	dir := t.TempDir()
+	aofPath := filepath.Join(dir, "appendonly.aof")
+	aof, err := persistence.NewAOF(aofPath, "always")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = aof.Close() })
+
+	ex := commands.NewExecutor(e, r, aof)
+	s := New(":0", e, ex)
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+
+	// Write via the web console, both upper- and lower-case.
+	out := doCommand(t, ts, "SET foo bar")
+	assert.Equal(t, "OK", out.Result["value"])
+	doCommand(t, ts, "set foo2 bar2")
+	// A read command must NOT be persisted.
+	doCommand(t, ts, "GET foo")
+
+	require.NoError(t, aof.Sync())
+	data, err := os.ReadFile(aofPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "foo")
+	assert.Contains(t, string(data), "foo2")
+	// Exactly two write commands persisted (SET + set); GET is not a write.
+	assert.Equal(t, 2, strings.Count(string(data), "bar"))
 }

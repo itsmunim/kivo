@@ -16,14 +16,14 @@
     <meta property="og:title" content="kivo — Redis-compatible in-memory data store in Go" />
     <meta property="og:description" content="A fast, lightweight, open source Redis-compatible in-memory data store written in Go. Drop-in for redis-cli, go-redis, and ioredis clients. Docker & Kubernetes ready." />
     <meta property="og:url" content="https://itsmunim.github.io/kivo/" />
-    <meta property="og:image" content="https://itsmunim.github.io/kivo/favicon.svg" />
+    <meta property="og:image" content="https://itsmunim.github.io/kivo/kivo-og.png" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="kivo — Redis-compatible in-memory data store in Go" />
     <meta name="twitter:description" content="A fast, lightweight, open source Redis-compatible in-memory data store written in Go. Docker & Kubernetes ready." />
-    <meta name="twitter:image" content="https://itsmunim.github.io/kivo/favicon.svg" />
+    <meta name="twitter:image" content="https://itsmunim.github.io/kivo/kivo-og.png" />
 
     <!-- Icons & theme -->
     <link rel="icon" type="image/svg+xml" href="/kivo/favicon.svg" />
@@ -79,6 +79,7 @@
             <a href="#docker">Docker</a>
             <a href="#kubernetes">Kubernetes</a>
             <a href="#faq">FAQ</a>
+            <a href="web-console.html">Web Console</a>
             <a href="https://github.com/itsmunim/kivo" target="_blank">GitHub</a>
           </div>
         </div>
@@ -163,6 +164,17 @@ docker run -p 6379:6379 ghcr.io/itsmunim/kivo:latest</code></pre>
         </div>
       </section>
 
+      <section class="console-band" id="web-console">
+        <div class="container">
+          <h2>No redis-cli? No problem.</h2>
+          <p><strong>kivo ships with an embedded web console.</strong> Browse every key with its type and TTL, and run any supported Redis command live in a browser terminal — no <code>redis-cli</code>, no client library, nothing to install. Start kivo and it is there at <code>http://localhost:3001</code>.</p>
+          <div class="hero-cta">
+            <a href="web-console.html" class="btn btn-secondary">Try the guided command tour</a>
+            <a href="https://github.com/itsmunim/kivo" class="btn btn-secondary" target="_blank">Get kivo on GitHub</a>
+          </div>
+        </div>
+      </section>
+
       <section class="features" id="faq">
         <div class="container">
           <h2>Frequently Asked Questions</h2>
@@ -219,6 +231,36 @@ docker run -p 6379:6379 ghcr.io/itsmunim/kivo:latest</code></pre>
               <h3>Keys & Server</h3>
               <code>KEYS</code> <code>FLUSHDB</code> <code>DBSIZE</code> <code>TYPE</code> <code>EXPIRE</code> <code>TTL</code> <code>PING</code> <code>ECHO</code>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="code-section benchmarks" id="benchmarks">
+        <div class="container">
+          <h2>Benchmarks</h2>
+          <p><code>redis-benchmark</code>, 100,000 requests, 50 parallel clients. kivo measured 2026-09-13 on Apple Silicon (Darwin arm64); Redis figures are published references from <a href="https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/" target="_blank" rel="noopener">redis.io</a> (entry-level Linux server). Different hardware — treat as order-of-magnitude.</p>
+          <div class="table-wrap">
+            <table class="bench-table">
+              <thead>
+                <tr><th>Command</th><th>kivo (ops/sec)</th><th>Redis (ops/sec)</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>PING</code></td><td>90,991</td><td>≈166,900</td></tr>
+                <tr><td><code>SET</code></td><td>91,743</td><td>≈141,800</td></tr>
+                <tr><td><code>GET</code></td><td>92,165</td><td>≈141,500</td></tr>
+                <tr><td><code>INCR</code></td><td>92,936</td><td>≈138,500</td></tr>
+                <tr><td><code>LPUSH</code></td><td>4,196<sup>*</sup></td><td>≈138,400</td></tr>
+                <tr><td><code>RPUSH</code></td><td>92,421</td><td>≈138,600</td></tr>
+                <tr><td><code>LPOP</code></td><td>90,171</td><td>≈137,800</td></tr>
+                <tr><td><code>RPOP</code></td><td>93,808</td><td>≈138,600</td></tr>
+                <tr><td><code>SADD</code></td><td>93,720</td><td>≈143,100</td></tr>
+                <tr><td><code>HSET</code></td><td>90,579</td><td>≈142,800</td></tr>
+                <tr><td><code>SET</code> pipelined (×16)</td><td>512,820</td><td>≥1,000,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="note">
+            <sup>*</sup> <code>LPUSH</code> is O(n) in kivo v1 — lists use Go slices and prepending copies the slice (a documented design tradeoff, see the <a href="https://github.com/itsmunim/kivo/blob/main/plans/v1-design.md" target="_blank" rel="noopener">design doc</a>). Every other command runs at roughly the same speed as Redis on this hardware. Full raw output: <a href="https://github.com/itsmunim/kivo/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">BENCHMARKS.md</a>.
           </div>
         </div>
       </section>

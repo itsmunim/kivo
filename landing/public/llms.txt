@@ -8,11 +8,13 @@
 - AOF (append-only file) persistence with configurable sync strategies: always, everysec, or no.
 - Lazy + active key expiration and configurable maxmemory limits with no-eviction policy.
 - Published Docker image on GitHub Container Registry: ghcr.io/itsmunim/kivo.
+- Ships an embedded web console (keys panel + live command terminal) at localhost:3001 - no redis-cli needed.
 - Kubernetes deployment via a StatefulSet manifest with PVC-backed AOF under k8s/kivo-deploy.yaml.
 - Single-node for v1; distributed sharding, clustering, and replication are the roadmap.
 
 ## Pages
 - [Home](https://itsmunim.github.io/kivo/) - Overview, features, Docker and Kubernetes quick-start, FAQ.
+- [Web Console guide](https://itsmunim.github.io/kivo/web-console.html) - Guided tour of the embedded web console with a full command test suite.
 
 ## Links
 - Source code and docs: https://github.com/itsmunim/kivo

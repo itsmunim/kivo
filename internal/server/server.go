@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -21,6 +20,7 @@ type Server struct {
 	config   config.Config
 	engine   *store.Engine
 	registry *commands.Registry
+	executor *commands.Executor
 	aof      *persistence.AOF
 	listener net.Listener
 	conns    sync.Map // map[net.Conn]struct{}
@@ -36,6 +36,7 @@ func New(cfg config.Config, engine *store.Engine, registry *commands.Registry, a
 		engine:   engine,
 		registry: registry,
 		aof:      aof,
+		executor: commands.NewExecutor(engine, registry, aof),
 	}
 }
 
@@ -124,7 +125,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		cmdName := args[0].String()
-		cmdArgs := args[1:]
 
 		// Special case: QUIT closes the connection.
 		if cmdName == "QUIT" {
@@ -132,24 +132,11 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		handler, ok := s.registry.Get(cmdName)
-		if !ok {
-			_ = writer.WriteValue(resp.NewError(fmt.Sprintf("ERR unknown command '%s'", cmdName)))
-			continue
+		cmdStrs := make([]string, len(args))
+		for i, arg := range args {
+			cmdStrs[i] = arg.String()
 		}
-
-		result := handler(s.engine, cmdArgs)
-
-		// Write AOF for write commands.
-		if s.aof != nil && isWriteCommand(cmdName) {
-			cmdArgsStr := make([]string, len(args))
-			for i, arg := range args {
-				cmdArgsStr[i] = arg.String()
-			}
-			if err := s.aof.Write(cmdArgsStr); err != nil {
-				fmt.Printf("aof write error: %v\n", err)
-			}
-		}
+		result := s.executor.Execute(cmdStrs)
 
 		if err := writer.WriteValue(result); err != nil {
 			fmt.Printf("write error to %s: %v\n", conn.RemoteAddr(), err)
@@ -161,21 +148,4 @@ func (s *Server) handleConn(conn net.Conn) {
 // ActiveConns returns the number of active connections.
 func (s *Server) ActiveConns() int64 {
 	return atomic.LoadInt64(&s.active)
-}
-
-// isWriteCommand returns true if the command modifies data.
-// The command name is normalized to uppercase for the check.
-func isWriteCommand(cmd string) bool {
-	switch strings.ToUpper(cmd) {
-	case "SET", "DEL", "EXPIRE", "PEXPIRE", "PERSIST",
-		"APPEND", "INCR", "DECR", "INCRBY", "DECRBY", "MSET",
-		"LPUSH", "RPUSH", "LPOP", "RPOP", "LREM", "LTRIM",
-		"SADD", "SREM", "SPOP",
-		"HSET", "HDEL",
-		"ZADD", "ZREM", "ZINCRBY", "ZREMRANGEBYSCORE", "ZREMRANGEBYRANK",
-		"RENAME", "RENAMENX", "FLUSHDB":
-		return true
-	default:
-		return false
-	}
 }

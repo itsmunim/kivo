@@ -52,6 +52,8 @@ spec:
           ports:
             - name: redis
               containerPort: 6379
+            - name: webui
+              containerPort: 3001
           resources:
             requests:
               memory: "128Mi"

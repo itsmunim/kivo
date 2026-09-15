@@ -30,6 +30,23 @@ body {
   overflow-x: hidden;
 }
 
+/* Links: external links (redis.io, github, etc.) must stay readable
+   on the dark background — never the default dark blue. */
+a {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+a:hover {
+  color: var(--accent-magenta);
+  text-decoration: underline;
+}
+
+a:visited {
+  color: var(--accent-cyan);
+}
+
 /* Logo — RESP-frame ASCII wordmark
    *1
    $4
@@ -516,5 +533,184 @@ body {
   .feature-grid,
   .command-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Web Console docs page ─────────────────────────────── */
+.doc-hero {
+  padding: 8rem 0 3rem;
+  text-align: center;
+}
+
+.doc-hero h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 1rem 0 0.75rem;
+}
+
+.doc-hero .tagline {
+  max-width: 720px;
+  margin: 0 auto 2rem;
+  font-size: 1.05rem;
+  color: var(--text-muted);
+}
+
+.doc-hero .tagline code,
+.steps code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  color: var(--accent-cyan);
+  background: rgba(0, 245, 212, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+
+.doc-section {
+  padding: 3.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.doc-section h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+.steps {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.98rem;
+}
+
+.steps li::marker {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+/* Command table */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg-card);
+}
+
+.cmd-table,
+.bench-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.cmd-table th,
+.cmd-table td,
+.bench-table th,
+.bench-table td {
+  text-align: left;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cmd-table thead th,
+.bench-table thead th {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cmd-table tbody tr:last-child td,
+.bench-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cmd-table code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent-cyan);
+}
+
+.cmd-table .expect {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+/* ── Console highlight band ────────────────────────────── */
+.console-band {
+  padding: 5rem 0;
+  text-align: center;
+  background: linear-gradient(180deg, var(--bg) 0%, rgba(155, 93, 229, 0.08) 50%, var(--bg) 100%);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.console-band h2 {
+  font-size: 1.9rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.console-band p {
+  max-width: 680px;
+  margin: 0 auto 2rem;
+  color: var(--text-muted);
+  font-size: 1.02rem;
+}
+
+.console-band code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  color: var(--accent-cyan);
+  background: rgba(0, 245, 212, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+}
+
+/* ── Benchmarks table ──────────────────────────────────── */
+.benchmarks .table-wrap {
+  margin-top: 1.5rem;
+}
+
+.bench-table td:first-child code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+
+.bench-table tbody td:nth-child(2) {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-cyan);
+}
+
+.bench-table tbody td:nth-child(3) {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.bench-table sup {
+  color: var(--accent-orange);
+  font-weight: 700;
+}
+
+/* Responsive for doc page */
+@media (max-width: 640px) {
+  .doc-hero {
+    padding: 6rem 0 2rem;
+  }
+  .doc-hero h1 {
+    font-size: 1.6rem;
+  }
+  .doc-section {
+    padding: 2.5rem 0;
+  }
+  .cmd-table {
+    font-size: 0.8rem;
   }
 }
