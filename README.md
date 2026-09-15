@@ -89,6 +89,22 @@ go test ./...
 ./scripts/benchmark.sh
 ```
 
+## Web Console
+
+kivo ships with an embedded browser console for browsing keys and running Redis commands live (how cool is that?!). It starts automatically on its own HTTP port:
+
+```bash
+go run ./cmd/kivo            # then open http://localhost:3001
+```
+
+- **Keys panel** — lists all keys with type badges and TTL; click a key to `GET` it
+- **Terminal** — run any supported Redis command; results render RESP-style (`+OK`, `-ERR`, `:1`, `"value"`, arrays)
+- **History** — press ↑/↓ to recall previous commands; auto-refreshes every 5s (or hit refresh on top-right)
+
+Disable it with `-webui=false`, or change the port with `-webui-addr=:8080`. 
+
+**Note:** In production, keep it bound to localhost or shield it behind auth — the console has no auth of its own.
+
 ## Benchmarks
 
 See [BENCHMARKS.md](BENCHMARKS.md) for performance results.
@@ -111,7 +127,7 @@ docker run -p 6379:6379 kivo
 
 ## Kubernetes
 
-A ready-to-apply manifest lives at [`k8s/kivo-deploy.yaml`](k8s/kivo-deploy.yaml). It runs kivo as a 1-replica StatefulSet with an attached PVC, so the AOF survives pod restarts.
+A ready-to-apply manifest lives at [`k8s/kivo-deploy.yaml`](k8s/kivo-deploy.yaml). It runs kivo as a 1-replica `StatefulSet` with an attached PVC, so the AOF survives pod restarts.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/itsmunim/kivo/main/k8s/kivo-deploy.yaml

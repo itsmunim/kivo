@@ -4,10 +4,10 @@
 *.dll
 *.so
 *.dylib
-kivo
-kivo
-kivo-bench
-kivo-test
+# Root-level build binaries (anchored so they don't match source dirs)
+/kivo
+/kivo-bench
+/kivo-test
 
 # Test binary, built with `go test -c`
 *.test
@@ -22,6 +22,7 @@ go.work
 
 # Dependency directories
 vendor/
+node_modules/
 
 # IDE
 .idea/
@@ -41,6 +42,7 @@ benchmark-results.md
 
 # Build artifacts
 dist/
+!internal/webui/dist/
 build/
 
 # Local config

@@ -1,33 +1,28 @@
-# Build stage
-FROM golang:1.23-alpine AS builder
+# syntax=docker/dockerfile:1
 
+# --- Stage 1: build the web console (React SPA) ---
+FROM node:22-alpine AS webui
 WORKDIR /app
+COPY webui/package.json webui/package-lock.json* ./
+RUN npm ci --omit=dev || npm install
+COPY webui/ .
+# Vite outputs to ../internal/webui/dist (embedded by Go).
+RUN npm run build
 
-# Install git (needed for go modules).
+# --- Stage 2: build the kivo binary with the UI embedded ---
+FROM golang:1.23-alpine AS builder
+WORKDIR /app
 RUN apk add --no-cache git
-
-# Copy module files and download dependencies.
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Copy source code.
 COPY . .
+COPY --from=webui /app/internal/webui/dist ./internal/webui/dist
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o kivo ./cmd/kivo
 
-# Build the binary.
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o kivo ./cmd/kivo
-
-# Runtime stage
+# --- Stage 3: minimal runtime image ---
 FROM alpine:latest
-
 RUN apk --no-cache add ca-certificates
-
 WORKDIR /root/
-
-# Copy the binary from builder.
 COPY --from=builder /app/kivo .
-
-# Expose the Redis port.
-EXPOSE 6379
-
-# Run kivo.
+EXPOSE 6379 3001
 CMD ["./kivo"]
