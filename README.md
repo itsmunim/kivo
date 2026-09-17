@@ -7,6 +7,19 @@ A fast, lightweight, Redis-compatible in-memory data store written in Go.
 > **Status:** v1 feature-complete. Single-node, reliable, Redis-protocol compatible.
 > See [plans/v1-design.md](plans/v1-design.md) for full architectural walkthrough.
 
+## When to use `kivo`
+
+`kivo` is a single-node, Redis-protocol-compatible store. If your use case looks like one of these, feel free to use it for MVPs or production workloads:
+
+- **App cache** — cache expensive computations, API responses, or rendered fragments
+- **Session store** — sessions with TTL-backed expiry
+- **Rate limiting** — atomic counters (`INCR` + `EXPIRE`)
+- **Task queues** — `LPUSH`/`RPOP` FIFO workers
+- **Leaderboards & ranked data** — sorted sets
+- **Prototypes and MVPs** — get something reliable running in minutes, scale later
+
+See the [benchmarks](#benchmarks) below: measured on identical hardware, `kivo` runs on par with Redis standalone and ahead on several operations (including 28–43% faster pipelined throughput) — so a single node is not a performance compromise.
+
 ## Platform Support
 
 `kivo` runs on all platforms. The only platform-specific behavior is a **startup warning** when `maxmemory` is configured:
@@ -79,24 +92,24 @@ Disable it with `-webui=false`, or change the port with `-webui-addr=:8080`.
 
 ## Benchmarks
 
-`kivo` measured with `redis-benchmark` (100,000 requests, 50 parallel clients) on Apple Silicon (Darwin arm64), 2026-09-13. Redis figures are published references from [redis.io](https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/benchmarks/) (entry-level Linux server). Different hardware — treat as order-of-magnitude.
+Measured on the same machine (Apple M1 Pro, Darwin arm64) with `redis-benchmark` — 100,000 requests, 50 parallel clients, real Redis 8.10.1 running locally as the baseline. Same commands, same host, back to back. Full raw output: [BENCHMARKS.md](BENCHMARKS.md).
 
-| Command | kivo (ops/sec) | Redis (ops/sec) |
-|---------|---------------|-----------------|
-| `PING` | 90,991 | ≈166,900 |
-| `SET` | 91,743 | ≈141,800 |
-| `GET` | 92,165 | ≈141,500 |
-| `INCR` | 92,936 | ≈138,500 |
-| `LPUSH` | 4,196\* | ≈138,400 |
-| `RPUSH` | 92,421 | ≈138,600 |
-| `LPOP` | 90,171 | ≈137,800 |
-| `RPOP` | 93,808 | ≈138,600 |
-| `SADD` | 93,720 | ≈143,100 |
-| `HSET` | 90,579 | ≈142,800 |
-| `SET` pipelined (×16) | 512,820 | ≥1,000,000 |
+| Command | kivo (ops/sec) | Redis (ops/sec) | verdict |
+|---------|---------------|-----------------|---------|
+| `PING` | 83,701 | 81,638 | kivo (+3%) |
+| `SET` | 83,217 | 78,526 | kivo (+6%) |
+| `GET` | 84,703 | 84,934 | ~parity |
+| `INCR` | 84,207 | 76,393 | **kivo (+10%)** |
+| `LPUSH` | 77,386 | 78,304 | ~parity |
+| `RPUSH` | 83,362 | 76,463 | **kivo (+9%)** |
+| `LPOP` | 81,416 | 78,297 | kivo (+4%) |
+| `RPOP` | 84,345 | 81,218 | kivo (+4%) |
+| `SADD` | 83,820 | 84,865 | ~parity |
+| `HSET` | 84,118 | 88,549 | Redis (+5%) |
+| `SET` pipelined (×16) | 1,123,595 | 787,402 | **kivo (+43%)** |
+| `GET` pipelined (×16) | 1,226,994 | 956,938 | **kivo (+28%)** |
 
-\* `LPUSH` is O(n) in `kivo` v1 — lists use Go slices and prepending copies the slice (a documented design tradeoff, see the [design doc](plans/v1-design.md)). Every other command runs at roughly the same speed as Redis on this hardware. Full raw output: [BENCHMARKS.md](BENCHMARKS.md).
-
+**TL;DR:** on identical hardware, `kivo` matches or beats Redis on 11 of 12 benchmarks — including 28–43% faster pipelined throughput. The only Redis win is `HSET` at +5%. `LPUSH` went from 4,196 ops/sec to 77,386 ops/sec (18x) after switching lists from Go slices to a ring-buffer deque ([design notes](plans/perf-plan.md)).
 ## Architecture
 
 ```

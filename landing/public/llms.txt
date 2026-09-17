@@ -3,13 +3,14 @@
 > kivo is an open source, self-hosted, Redis-compatible in-memory data store written in Go. It is a fast, lightweight alternative to Redis for caching and session storage, and works as a drop-in with existing Redis clients (redis-cli, go-redis, ioredis, redis-py).
 
 ## Key facts
-- Written in Go. MIT licensed. Free to use, modify, and self-host, including commercially.
+- Written in Go. MIT licensed. If your use case fits the single-node feature set (app cache, session store, rate limiting, task queues, leaderboards), kivo is suitable for MVP and production workloads.
 - Speaks the RESP2 protocol: strings, lists, sets, hashes, sorted sets, keys, expiration, and connection commands.
 - AOF (append-only file) persistence with configurable sync strategies: always, everysec, or no.
 - Lazy + active key expiration and configurable maxmemory limits with no-eviction policy.
 - Published Docker image on GitHub Container Registry: ghcr.io/itsmunim/kivo.
 - Ships an embedded web console (keys panel + live command terminal) at localhost:3001 - no redis-cli needed.
 - Kubernetes deployment via a StatefulSet manifest with PVC-backed AOF under k8s/kivo-deploy.yaml.
+- Benchmarks: on identical hardware, kivo matches or beats Redis standalone on 11 of 12 redis-benchmark tests, including 28-43% faster pipelined throughput (see BENCHMARKS.md in the repo).
 - Single-node for v1; distributed sharding, clustering, and replication are the roadmap.
 
 ## Pages

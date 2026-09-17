@@ -115,12 +115,14 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		if v.Type() != resp.Array {
 			_ = writer.WriteValue(resp.NewError("ERR unknown command"))
+			_ = writer.Flush()
 			continue
 		}
 
 		args := v.Array()
 		if len(args) == 0 {
 			_ = writer.WriteValue(resp.NewError("ERR unknown command"))
+			_ = writer.Flush()
 			continue
 		}
 
@@ -129,18 +131,25 @@ func (s *Server) handleConn(conn net.Conn) {
 		// Special case: QUIT closes the connection.
 		if cmdName == "QUIT" {
 			_ = writer.WriteValue(resp.NewSimpleString("OK"))
+			_ = writer.Flush()
 			return
 		}
 
-		cmdStrs := make([]string, len(args))
-		for i, arg := range args {
-			cmdStrs[i] = arg.String()
-		}
-		result := s.executor.Execute(cmdStrs)
+		result := s.executor.Execute(args)
 
 		if err := writer.WriteValue(result); err != nil {
 			fmt.Printf("write error to %s: %v\n", conn.RemoteAddr(), err)
 			return
+		}
+
+		// Flush unless more pipelined commands are already buffered. This
+		// keeps request/response latency at one flush per command while
+		// coalescing a pipelined batch into a single write syscall.
+		if reader.Buffered() == 0 {
+			if err := writer.Flush(); err != nil {
+				fmt.Printf("flush error to %s: %v\n", conn.RemoteAddr(), err)
+				return
+			}
 		}
 	}
 }

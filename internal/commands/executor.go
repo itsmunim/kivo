@@ -43,32 +43,53 @@ func normalizeAppender(a Appender) Appender {
 	return a
 }
 
-// Execute runs a command given as string arguments; the first element is the
-// command name (case-insensitive). It returns the RESP result of the command.
-func (x *Executor) Execute(args []string) resp.Value {
+// Execute runs a command from already-parsed RESP arguments; the first
+// element is the command name (case-insensitive). It returns the RESP
+// result of the command and, for write commands, appends the original
+// arguments to the Appender. This is the hot path for the TCP server:
+// no intermediate []string conversion exists.
+func (x *Executor) Execute(args []resp.Value) resp.Value {
 	if len(args) == 0 {
 		return resp.NewError("ERR empty command")
 	}
 
-	name := strings.ToUpper(args[0])
+	name := strings.ToUpper(args[0].String())
 	handler, ok := x.registry.Get(name)
 	if !ok {
-		return resp.NewError(fmt.Sprintf("ERR unknown command '%s'", args[0]))
+		return resp.NewError(fmt.Sprintf("ERR unknown command '%s'", args[0].String()))
 	}
 
-	cmdArgs := make([]resp.Value, len(args)-1)
-	for i := 1; i < len(args); i++ {
-		cmdArgs[i-1] = resp.NewBulkString(args[i])
-	}
-
-	result := handler(x.engine, cmdArgs)
+	result := handler(x.engine, args[1:])
 
 	if x.appender != nil && isWriteCommand(name) {
-		if err := x.appender.Write(args); err != nil {
+		if err := x.appender.Write(stringArgs(args)); err != nil {
 			fmt.Printf("aof write error: %v\n", err)
 		}
 	}
 	return result
+}
+
+// ExecuteStrings runs a command given as string arguments (used by the web
+// console). It converts to RESP values and delegates to Execute.
+func (x *Executor) ExecuteStrings(args []string) resp.Value {
+	if len(args) == 0 {
+		return resp.NewError("ERR empty command")
+	}
+	values := make([]resp.Value, len(args))
+	for i, s := range args {
+		values[i] = resp.NewBulkString(s)
+	}
+	return x.Execute(values)
+}
+
+// stringArgs converts parsed RESP values back to strings for AOF persistence,
+// which stores commands as RESP arrays over plain string args.
+func stringArgs(args []resp.Value) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		out[i] = a.String()
+	}
+	return out
 }
 
 // isWriteCommand returns true if the (already upper-cased) command modifies data.

@@ -233,15 +233,17 @@ Redis speaks RESP2 (REdis Serialization Protocol). It's text-based and simple:
 
 ### 4.2 Lists
 
-**Structure:** `[]string` (Go slice).
+**Structure:** Ring-buffer deque (`internal/store/list.go`) — a preallocated `[]string` with head/tail indices that doubles on growth.
 
-**Why:** Redis lists are doubly-linked lists (for O(1) push/pop at both ends and O(1) insert at arbitrary positions). Go slices give us O(1) append (`RPUSH`) but O(n) prepend (`LPUSH`) because we allocate a new slice and copy. For v1 workloads (queues, small lists), this is fine.
+**Why:** Redis lists are doubly-linked lists for O(1) push/pop at both ends. Our ring buffer gives the same O(1) amortized push/pop at both ends with better cache locality than a linked list, plus O(1) `LINDEX` via index arithmetic.
+
+**History:** v1 originally used plain Go slices, where prepend (`LPUSH`) was O(n) — `append([]string{v}, list...)` copied the whole list. Under `redis-benchmark`'s single-growing-list LPUSH that became an O(n²) allocation bomb (98.7% of all allocations in profiling, 4.2K ops/sec collapsing toward zero). The deque fixed it: 233,846 → 50 ns/op per push, LPUSH now at parity with Redis (77K ops/sec). See [perf-plan.md](perf-plan.md).
 
 **Key methods:**
-- `LPush`: Prepend via `append([]string{v}, list...)`
-- `RPush`: `append(list, values...)`
-- `LRange`: Slice operation with index normalization
-- `LRem`: Iterate and filter
+- `LPush`/`RPush`: `PushFront`/`PushBack` — O(1) amortized
+- `LPop`/`RPop`: `PopFront`/`PopBack` — O(1)
+- `LRange`/`LIndex`: index arithmetic, O(1) per element
+- `LRem`: iterate + filter (O(n), same as Redis's implementation)
 
 **Index normalization:** Redis supports negative indices (-1 = last element). `normalizeRange` and `normalizeIndex` handle this.
 

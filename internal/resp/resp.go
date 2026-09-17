@@ -16,6 +16,7 @@ package resp
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -59,7 +60,7 @@ func (v Value) Integer() int64 { return v.num }
 func (v Value) Array() []Value { return v.array }
 func (v Value) IsNull() bool   { return v.null }
 
-// String returns a human-readable representation for debugging.
+// DebugString returns a human-readable representation for debugging.
 func (v Value) DebugString() string {
 	switch v.typ {
 	case SimpleString:
@@ -83,15 +84,26 @@ func (v Value) DebugString() string {
 	}
 }
 
+// ----------------------------------------------------------------------------
+// Reader
+// ----------------------------------------------------------------------------
+
+const maxBulkLen = 512 << 20 // 512 MB, matching Redis's proto-max-bulk-len
+
 // Reader reads RESP values from an io.Reader.
 type Reader struct {
-	reader *bufio.Reader
+	reader  *bufio.Reader
+	scratch []byte // reused across bulk-string reads to avoid per-read allocs
 }
 
 // NewReader creates a new RESP reader.
 func NewReader(r io.Reader) *Reader {
-	return &Reader{reader: bufio.NewReader(r)}
+	return &Reader{reader: bufio.NewReaderSize(r, 32<<10)}
 }
+
+// Buffered returns the number of bytes buffered in the underlying bufio.Reader.
+// The server uses it to coalesce response flushes across pipelined commands.
+func (r *Reader) Buffered() int { return r.reader.Buffered() }
 
 // ReadValue reads and parses the next RESP value.
 // It supports both RESP arrays and inline commands (space-separated text lines).
@@ -129,7 +141,7 @@ func (r *Reader) readLine() ([]byte, error) {
 		return nil, err
 	}
 	if len(line) < 2 || line[len(line)-2] != '\r' {
-		return nil, fmt.Errorf("resp: invalid line ending")
+		return nil, errors.New("resp: invalid line ending")
 	}
 	return line[:len(line)-2], nil
 }
@@ -175,16 +187,23 @@ func (r *Reader) readBulkString() (Value, error) {
 		// Null bulk string.
 		return NewNullBulkString(), nil
 	}
+	if length > maxBulkLen {
+		return Value{}, fmt.Errorf("resp: bulk string too long: %d", length)
+	}
 
-	// Read exactly length bytes + \r\n.
-	data := make([]byte, length+2)
-	_, err = io.ReadFull(r.reader, data)
-	if err != nil {
+	// Reuse a per-connection scratch buffer instead of allocating per read.
+	if int64(cap(r.scratch)) < length+2 {
+		r.scratch = make([]byte, length+2)
+	}
+	data := r.scratch[:length+2]
+	if _, err := io.ReadFull(r.reader, data); err != nil {
 		return Value{}, fmt.Errorf("resp: bulk string read: %w", err)
 	}
 	if data[length] != '\r' || data[length+1] != '\n' {
-		return Value{}, fmt.Errorf("resp: invalid bulk string terminator")
+		return Value{}, errors.New("resp: invalid bulk string terminator")
 	}
+	// string(data[:length]) copies out of the reusable buffer, which is
+	// required for safety but keeps us at exactly one alloc per payload.
 	return NewBulkString(string(data[:length])), nil
 }
 
@@ -232,15 +251,23 @@ func (r *Reader) readInline() (Value, error) {
 	return NewArray(values...), nil
 }
 
-// Writer writes RESP values to an io.Writer.
+// ----------------------------------------------------------------------------
+// Writer
+// ----------------------------------------------------------------------------
+
+// Writer serializes RESP values to a buffered writer. Call Flush to push
+// buffered bytes to the underlying connection.
 type Writer struct {
-	writer io.Writer
+	writer *bufio.Writer
 }
 
-// NewWriter creates a new RESP writer.
+// NewWriter creates a new RESP writer wrapping w in a buffer.
 func NewWriter(w io.Writer) *Writer {
-	return &Writer{writer: w}
+	return &Writer{writer: bufio.NewWriterSize(w, 32<<10)}
 }
+
+// Flush writes any buffered bytes to the underlying io.Writer.
+func (w *Writer) Flush() error { return w.writer.Flush() }
 
 // WriteValue serializes a RESP value.
 func (w *Writer) WriteValue(v Value) error {
@@ -253,8 +280,7 @@ func (w *Writer) WriteValue(v Value) error {
 		return w.writeInteger(v.num)
 	case BulkString:
 		if v.IsNull() {
-			_, err := fmt.Fprint(w.writer, "$-1\r\n")
-			return err
+			return w.writeString("$-1\r\n")
 		}
 		return w.writeBulkString(v.str)
 	case Array:
@@ -264,33 +290,66 @@ func (w *Writer) WriteValue(v Value) error {
 	}
 }
 
-func (w *Writer) writeSimpleString(s string) error {
-	_, err := fmt.Fprintf(w.writer, "+%s\r\n", s)
+func (w *Writer) writeString(s string) error {
+	_, err := w.writer.WriteString(s)
 	return err
+}
+
+func (w *Writer) writeSimpleString(s string) error {
+	if err := w.writeString("+"); err != nil {
+		return err
+	}
+	if err := w.writeString(s); err != nil {
+		return err
+	}
+	return w.writeString("\r\n")
 }
 
 func (w *Writer) writeError(s string) error {
-	_, err := fmt.Fprintf(w.writer, "-%s\r\n", s)
-	return err
+	if err := w.writeString("-"); err != nil {
+		return err
+	}
+	if err := w.writeString(s); err != nil {
+		return err
+	}
+	return w.writeString("\r\n")
 }
 
 func (w *Writer) writeInteger(n int64) error {
-	_, err := fmt.Fprintf(w.writer, ":%d\r\n", n)
+	var b [40]byte
+	buf := b[:1]
+	buf[0] = ':'
+	buf = strconv.AppendInt(buf, n, 10)
+	buf = append(buf, '\r', '\n')
+	_, err := w.writer.Write(buf)
 	return err
 }
 
 func (w *Writer) writeBulkString(s string) error {
-	_, err := fmt.Fprintf(w.writer, "$%d\r\n%s\r\n", len(s), s)
-	return err
+	var b [40]byte
+	buf := b[:1]
+	buf[0] = '$'
+	buf = strconv.AppendInt(buf, int64(len(s)), 10)
+	buf = append(buf, '\r', '\n')
+	if _, err := w.writer.Write(buf); err != nil {
+		return err
+	}
+	if err := w.writeString(s); err != nil {
+		return err
+	}
+	return w.writeString("\r\n")
 }
 
 func (w *Writer) writeArray(values []Value, isNull bool) error {
 	if isNull {
-		_, err := fmt.Fprint(w.writer, "*-1\r\n")
-		return err
+		return w.writeString("*-1\r\n")
 	}
-	_, err := fmt.Fprintf(w.writer, "*%d\r\n", len(values))
-	if err != nil {
+	var b [40]byte
+	buf := b[:1]
+	buf[0] = '*'
+	buf = strconv.AppendInt(buf, int64(len(values)), 10)
+	buf = append(buf, '\r', '\n')
+	if _, err := w.writer.Write(buf); err != nil {
 		return err
 	}
 	for _, v := range values {

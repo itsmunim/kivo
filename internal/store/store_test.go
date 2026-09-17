@@ -865,7 +865,10 @@ func TestEstimateItemSize(t *testing.T) {
 	assert.Equal(t, int64(3+5), size) // "key" + "value"
 
 	// List
-	size = estimateItemSize("key", Item{Value: []string{"a", "bb"}, Typ: TypeList})
+	l := NewList()
+	l.PushBack("a")
+	l.PushBack("bb")
+	size = estimateItemSize("key", Item{Value: l, Typ: TypeList})
 	assert.Equal(t, int64(3+1+2), size)
 
 	// Set
@@ -905,4 +908,46 @@ func TestCheckMemoryUnlimited(t *testing.T) {
 	// Unlimited should always allow.
 	err := e.checkMemory(1000000)
 	assert.NoError(t, err)
+}
+
+// --- Micro-benchmarks (regression harness) ---
+
+func BenchmarkStoreSet(b *testing.B) {
+	e := NewEngine()
+	defer e.Stop()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		e.Set(fmt.Sprintf("key:%d", i), "value", 0)
+	}
+}
+
+func BenchmarkStoreGet(b *testing.B) {
+	e := NewEngine()
+	defer e.Stop()
+	e.Set("key", "value", 0)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = e.Get("key")
+	}
+}
+
+func BenchmarkStoreLPush(b *testing.B) {
+	e := NewEngine()
+	defer e.Stop()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.LPush("list", "item")
+	}
+}
+
+func BenchmarkStoreRPush(b *testing.B) {
+	e := NewEngine()
+	defer e.Stop()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.RPush("list", "item")
+	}
 }

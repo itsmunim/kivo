@@ -98,6 +98,11 @@ func (a *AOF) Write(args []string) error {
 	if err := w.WriteValue(cmd); err != nil {
 		return fmt.Errorf("aof write: %w", err)
 	}
+	// resp.NewWriter buffers internally; push those bytes into a.writer
+	// (the AOF's own bufio) before the sync-strategy flush below.
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("aof write flush: %w", err)
+	}
 
 	if a.sync == "always" {
 		if err := a.writer.Flush(); err != nil {

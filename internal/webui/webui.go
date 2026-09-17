@@ -145,7 +145,7 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	result := s.executor.Execute(args)
+	result := s.executor.ExecuteStrings(args)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	writeJSON(w, commandResponse{

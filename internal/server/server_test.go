@@ -58,6 +58,7 @@ func sendCommand(t *testing.T, addr string, args ...string) resp.Value {
 	}
 	err = writer.WriteValue(resp.NewArray(cmdArgs...))
 	require.NoError(t, err)
+	require.NoError(t, writer.Flush())
 
 	v, err := reader.ReadValue()
 	require.NoError(t, err)
@@ -190,6 +191,7 @@ func TestServerPipeline(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	require.NoError(t, writer.Flush())
 	// Read all responses.
 	for i := 0; i < 5; i++ {
 		v, err := reader.ReadValue()

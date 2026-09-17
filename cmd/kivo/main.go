@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof" // registers /debug/pprof/ on the default mux
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -31,7 +33,16 @@ func main() {
 	flag.BoolVar(&cfg.Verbose, "verbose", cfg.Verbose, "Enable verbose logging")
 	flag.BoolVar(&cfg.WebUIEnabled, "webui", cfg.WebUIEnabled, "Enable the web console")
 	flag.StringVar(&cfg.WebUIAddr, "webui-addr", cfg.WebUIAddr, "Web console HTTP listen address")
+	pprofAddr := flag.String("pprof", "", "Enable pprof profiling on address (e.g. localhost:6060)")
 	flag.Parse()
+
+	// Optional pprof endpoint for profiling under load.
+	if *pprofAddr != "" {
+		go func() {
+			fmt.Printf("pprof listening on http://%s/debug/pprof/\n", *pprofAddr)
+			fmt.Println(http.ListenAndServe(*pprofAddr, nil))
+		}()
+	}
 
 	// Initialize storage engine.
 	engine := store.NewEngineWithMaxMemory(cfg.MaxMemory)

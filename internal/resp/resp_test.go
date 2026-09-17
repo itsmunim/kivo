@@ -17,6 +17,7 @@ func TestWriteSimpleString(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewSimpleString("OK"))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "+OK\r\n", buf.String())
 }
 
@@ -25,6 +26,7 @@ func TestWriteError(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewError("ERR unknown command 'foo'"))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "-ERR unknown command 'foo'\r\n", buf.String())
 }
 
@@ -33,6 +35,7 @@ func TestWriteInteger(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewInteger(42))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, ":42\r\n", buf.String())
 }
 
@@ -41,6 +44,7 @@ func TestWriteIntegerNegative(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewInteger(-999))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, ":-999\r\n", buf.String())
 }
 
@@ -49,6 +53,7 @@ func TestWriteBulkString(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewBulkString("hello"))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "$5\r\nhello\r\n", buf.String())
 }
 
@@ -57,6 +62,7 @@ func TestWriteBulkStringEmpty(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewBulkString(""))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "$0\r\n\r\n", buf.String())
 }
 
@@ -65,6 +71,7 @@ func TestWriteNullBulkString(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewNullBulkString())
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "$-1\r\n", buf.String())
 }
 
@@ -76,6 +83,7 @@ func TestWriteArray(t *testing.T) {
 		NewBulkString("key"),
 	))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n", buf.String())
 }
 
@@ -84,6 +92,7 @@ func TestWriteEmptyArray(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewArray())
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "*0\r\n", buf.String())
 }
 
@@ -92,6 +101,7 @@ func TestWriteNullArray(t *testing.T) {
 	w := NewWriter(&buf)
 	err := w.WriteValue(NewNullArray())
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "*-1\r\n", buf.String())
 }
 
@@ -107,6 +117,7 @@ func TestWriteNestedArray(t *testing.T) {
 		NewInteger(3),
 	))
 	require.NoError(t, err)
+	require.NoError(t, w.Flush())
 	assert.Equal(t, "*3\r\n:1\r\n*2\r\n$1\r\na\r\n$1\r\nb\r\n:3\r\n", buf.String())
 }
 
@@ -262,6 +273,7 @@ func assertRoundTrip(t *testing.T, original Value) {
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
 	require.NoError(t, w.WriteValue(original))
+	require.NoError(t, w.Flush())
 
 	r := NewReader(&buf)
 	parsed, err := r.ReadValue()

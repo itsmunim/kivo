@@ -97,8 +97,11 @@ func estimateItemSize(key string, item Item) int64 {
 	case TypeString:
 		size += int64(len(item.Value.(string)))
 	case TypeList:
-		for _, v := range item.Value.([]string) {
-			size += int64(len(v))
+		if l, ok := item.Value.(*List); ok {
+			for i := 0; i < l.Len(); i++ {
+				v, _ := l.Get(i)
+				size += int64(len(v))
+			}
 		}
 	case TypeSet:
 		for m := range item.Value.(map[string]struct{}) {
@@ -411,84 +414,98 @@ func (e *Engine) MSet(pairs []string) {
 
 // ---------- List operations ----------
 
-// List type helpers
-func (e *Engine) getList(key string, create bool) ([]string, bool) {
+// getList returns the list stored at key. When create is true and the key
+// does not exist, an empty list is returned so callers can build it up.
+func (e *Engine) getList(key string, create bool) (*List, bool) {
 	item, ok := e.data[key]
 	if !ok || e.isExpiredLocked(key, item) {
 		if create {
-			return []string{}, true
+			return NewList(), true
 		}
 		return nil, false
 	}
 	if item.Typ != TypeList {
 		return nil, false
 	}
-	return item.Value.([]string), true
+	list, ok := item.Value.(*List)
+	return list, ok
 }
 
-func (e *Engine) saveList(key string, list []string) {
+func (e *Engine) saveList(key string, list *List) {
 	e.data[key] = Item{Value: list, Typ: TypeList}
 }
 
-// LPush pushes values to the head of a list. Returns the new length.
+// LPush pushes values to the head of a list (O(1) per element).
+// Multiple values are pushed in argument order, so the last argument
+// ends up at the head — matching Redis semantics. Returns the new length.
 func (e *Engine) LPush(key string, values ...string) int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, true)
 	if !ok {
 		return 0
 	}
-	// Prepend in forward order so last arg ends up at head.
-	for _, v := range values {
-		list = append([]string{v}, list...)
+	if len(values) > 0 {
+		for _, v := range values {
+			list.PushFront(v)
+		}
+		e.saveList(key, list)
 	}
-	e.saveList(key, list)
-	return len(list)
+	return list.Len()
 }
 
-// RPush pushes values to the tail of a list. Returns the new length.
+// RPush pushes values to the tail of a list (O(1) per element).
+// Returns the new length.
 func (e *Engine) RPush(key string, values ...string) int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, true)
 	if !ok {
 		return 0
 	}
-	list = append(list, values...)
-	e.saveList(key, list)
-	return len(list)
+	if len(values) > 0 {
+		for _, v := range values {
+			list.PushBack(v)
+		}
+		e.saveList(key, list)
+	}
+	return list.Len()
 }
 
-// LPop pops from the head of a list. Returns the value and true if the list existed.
+// LPop pops from the head of a list. Returns the value and true if it existed.
 func (e *Engine) LPop(key string) (string, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, false)
-	if !ok || len(list) == 0 {
+	if !ok || list.Len() == 0 {
 		return "", false
 	}
-	val := list[0]
-	if len(list) == 1 {
+	val, _ := list.PopFront()
+	if list.Len() == 0 {
 		delete(e.data, key)
 	} else {
-		e.saveList(key, list[1:])
+		e.saveList(key, list)
 	}
 	return val, true
 }
 
-// RPop pops from the tail of a list. Returns the value and true if the list existed.
+// RPop pops from the tail of a list. Returns the value and true if it existed.
 func (e *Engine) RPop(key string) (string, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, false)
-	if !ok || len(list) == 0 {
+	if !ok || list.Len() == 0 {
 		return "", false
 	}
-	val := list[len(list)-1]
-	if len(list) == 1 {
+	val, _ := list.PopBack()
+	if list.Len() == 0 {
 		delete(e.data, key)
 	} else {
-		e.saveList(key, list[:len(list)-1])
+		e.saveList(key, list)
 	}
 	return val, true
 }
@@ -497,92 +514,104 @@ func (e *Engine) RPop(key string) (string, bool) {
 func (e *Engine) LRange(key string, start, stop int) []string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
 	list, ok := e.getList(key, false)
 	if !ok {
 		return nil
 	}
-	start, stop = normalizeRange(start, stop, len(list))
+	n := list.Len()
+	start, stop = normalizeRange(start, stop, n)
 	if start > stop {
 		return nil
 	}
-	return list[start : stop+1]
+	result := make([]string, stop-start+1)
+	for i := start; i <= stop; i++ {
+		result[i-start], _ = list.Get(i)
+	}
+	return result
 }
 
 // LLen returns the length of a list.
 func (e *Engine) LLen(key string) int {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
 	list, ok := e.getList(key, false)
 	if !ok {
 		return 0
 	}
-	return len(list)
+	return list.Len()
 }
 
-// LIndex returns the element at an index.
+// LIndex returns the element at an index (negative counts from the tail).
 func (e *Engine) LIndex(key string, index int) (string, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+
 	list, ok := e.getList(key, false)
 	if !ok {
 		return "", false
 	}
-	idx := normalizeIndex(index, len(list))
-	if idx < 0 || idx >= len(list) {
-		return "", false
-	}
-	return list[idx], true
+	return list.Get(index)
 }
 
 // LRem removes elements equal to value from a list.
-// count > 0: remove first N from head.
-// count < 0: remove first N from tail.
-// count = 0: remove all.
+// count > 0: remove first N from head. count < 0: remove first N from tail.
+// count = 0: remove all. Returns the number removed.
 func (e *Engine) LRem(key string, count int, value string) int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, false)
 	if !ok {
 		return 0
 	}
+	all := list.Copy()
 	removed := 0
-	if count == 0 {
-		newList := make([]string, 0, len(list))
-		for _, v := range list {
-			if v != value {
-				newList = append(newList, v)
-			} else {
+	var kept []string
+
+	switch {
+	case count == 0:
+		for _, v := range all {
+			if v == value {
 				removed++
+			} else {
+				kept = append(kept, v)
 			}
 		}
-		list = newList
-	} else if count > 0 {
-		newList := make([]string, 0, len(list))
-		for _, v := range list {
+	case count > 0:
+		for _, v := range all {
 			if v == value && removed < count {
 				removed++
 			} else {
-				newList = append(newList, v)
+				kept = append(kept, v)
 			}
 		}
-		list = newList
-	} else {
-		// Remove from tail: iterate backwards.
+	default:
+		// Remove from tail: iterate backwards, keep in reverse, then un-reverse.
 		target := -count
-		newList := make([]string, 0, len(list))
-		for i := len(list) - 1; i >= 0; i-- {
-			if list[i] == value && removed < target {
+		rev := make([]string, 0, len(all))
+		for i := len(all) - 1; i >= 0; i-- {
+			if all[i] == value && removed < target {
 				removed++
 			} else {
-				newList = append([]string{list[i]}, newList...)
+				rev = append(rev, all[i])
 			}
 		}
-		list = newList
+		kept = make([]string, len(rev))
+		for i := range rev {
+			kept[len(rev)-1-i] = rev[i]
+		}
 	}
-	if len(list) == 0 {
+
+	if len(kept) == 0 {
 		delete(e.data, key)
 	} else {
-		e.saveList(key, list)
+		newList := NewList()
+		for _, v := range kept {
+			newList.PushBack(v)
+		}
+		e.saveList(key, newList)
 	}
 	return removed
 }
@@ -591,21 +620,26 @@ func (e *Engine) LRem(key string, count int, value string) int {
 func (e *Engine) LTrim(key string, start, stop int) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	list, ok := e.getList(key, false)
 	if !ok {
 		return
 	}
-	start, stop = normalizeRange(start, stop, len(list))
+	n := list.Len()
+	start, stop = normalizeRange(start, stop, n)
 	if start > stop {
 		delete(e.data, key)
 		return
 	}
-	list = list[start : stop+1]
-	if len(list) == 0 {
-		delete(e.data, key)
-	} else {
-		e.saveList(key, list)
+	kept := make([]string, stop-start+1)
+	for i := start; i <= stop; i++ {
+		kept[i-start], _ = list.Get(i)
 	}
+	newList := NewList()
+	for _, v := range kept {
+		newList.PushBack(v)
+	}
+	e.saveList(key, newList)
 }
 
 // ---------- Set operations ----------
