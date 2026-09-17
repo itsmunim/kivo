@@ -10,12 +10,20 @@
   --bg-card: #1a1a28;
   --text: #e8e8f0;
   --text-muted: #8888a0;
-  --accent-cyan: #00f5d4;
+  /* Primary accent (buttons, links, markers) — indigo-violet */
+  --accent: #8b7cf6;
+  --accent-bright: #a78bfa;
+  /* Links: subdued, readable on dark */
+  --link: #8f9dff;
+  /* Code: soft mint, low saturation */
+  --code: #7fd4c3;
+  /* Kept for component compatibility */
+  --accent-cyan: #7fd4c3;
   --accent-magenta: #f15bb5;
   --accent-violet: #9b5de5;
   --accent-orange: #fee440;
   --accent-blue: #00bbf9;
-  --border: rgba(255,255,255,0.08);
+  --border: rgba(255, 255, 255, 0.08);
 }
 
 html {
@@ -30,21 +38,21 @@ body {
   overflow-x: hidden;
 }
 
-/* Links: external links (redis.io, github, etc.) must stay readable
-   on the dark background — never the default dark blue. */
+/* Links: subdued indigo, readable on dark — never default dark blue,
+   never neon. */
 a {
-  color: var(--accent-cyan);
+  color: var(--link);
   text-decoration: none;
   transition: color 0.15s;
 }
 
 a:hover {
-  color: var(--accent-magenta);
+  color: var(--accent-bright);
   text-decoration: underline;
 }
 
 a:visited {
-  color: var(--accent-cyan);
+  color: var(--link);
 }
 
 /* Logo — RESP-frame ASCII wordmark
@@ -210,26 +218,34 @@ a:visited {
   border: none;
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, var(--accent-violet), var(--accent-magenta));
-  color: white;
-  box-shadow: 0 4px 20px rgba(155, 93, 229, 0.3);
+/* Only two button kinds: primary (solid, high contrast) and secondary (ghost).
+   The a.btn-* prefixes beat the global a:hover / a:visited rules so text
+   color never changes on hover or after visiting. */
+a.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(139, 124, 246, 0.35);
 }
 
-.btn-primary:hover {
+a.btn-primary:hover {
+  background: var(--accent-bright);
+  color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(155, 93, 229, 0.4);
+  box-shadow: 0 8px 30px rgba(139, 124, 246, 0.45);
+  text-decoration: none;
 }
 
-.btn-secondary {
+a.btn-secondary {
   background: var(--bg-card);
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-.btn-secondary:hover {
+a.btn-secondary:hover {
   background: var(--bg-elevated);
-  border-color: rgba(255,255,255,0.15);
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.15);
+  text-decoration: none;
 }
 
 /* Sections */
@@ -335,23 +351,25 @@ a:visited {
   color: var(--text);
 }
 
+/* Copy button: compact secondary (same family, smaller) */
 .copy-btn {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
-  padding: 0.4rem 0.8rem;
-  background: var(--bg-card);
+  padding: 0.35rem 0.7rem;
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .copy-btn:hover {
   color: var(--text);
-  border-color: rgba(255,255,255,0.15);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--bg-elevated);
 }
 
 .kubernetes {
@@ -378,8 +396,8 @@ a:visited {
 .note code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  color: var(--accent-cyan);
-  background: rgba(0, 245, 212, 0.08);
+  color: var(--code);
+  background: rgba(127, 212, 195, 0.07);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
@@ -396,7 +414,7 @@ a:visited {
 .faq-item {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent-cyan);
+  border-left: 3px solid var(--accent);
   border-radius: 0.75rem;
   padding: 1.25rem 1.5rem;
 }
@@ -417,8 +435,8 @@ a:visited {
 .faq-item code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.82rem;
-  color: var(--accent-cyan);
-  background: rgba(0, 245, 212, 0.08);
+  color: var(--code);
+  background: rgba(127, 212, 195, 0.07);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
@@ -440,7 +458,7 @@ a:visited {
 .command-group h4 {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--accent-cyan);
+  color: var(--accent);
   margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -448,8 +466,8 @@ a:visited {
 
 .command-group code {
   display: inline-block;
-  background: rgba(0, 187, 249, 0.1);
-  color: var(--accent-blue);
+  background: rgba(139, 124, 246, 0.12);
+  color: var(--accent-bright);
   padding: 0.2rem 0.5rem;
   border-radius: 0.25rem;
   font-family: 'JetBrains Mono', monospace;
@@ -492,7 +510,7 @@ a:visited {
 }
 
 .footer-links a:hover {
-  color: var(--accent-cyan);
+  color: var(--link);
 }
 
 /* Responsive */
@@ -559,8 +577,8 @@ a:visited {
 .steps code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  color: var(--accent-cyan);
-  background: rgba(0, 245, 212, 0.08);
+  color: var(--code);
+  background: rgba(127, 212, 195, 0.07);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
@@ -588,7 +606,7 @@ a:visited {
 }
 
 .steps li::marker {
-  color: var(--accent-cyan);
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -634,7 +652,7 @@ a:visited {
 .cmd-table code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.82rem;
-  color: var(--accent-cyan);
+  color: var(--code);
 }
 
 .cmd-table .expect {
@@ -667,8 +685,8 @@ a:visited {
 .console-band code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85em;
-  color: var(--accent-cyan);
-  background: rgba(0, 245, 212, 0.08);
+  color: var(--code);
+  background: rgba(127, 212, 195, 0.07);
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
@@ -686,7 +704,7 @@ a:visited {
 
 .bench-table tbody td:nth-child(2) {
   font-family: 'JetBrains Mono', monospace;
-  color: var(--accent-cyan);
+  color: var(--accent);
 }
 
 .bench-table tbody td:nth-child(3) {
