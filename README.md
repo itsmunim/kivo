@@ -24,7 +24,7 @@ See the [benchmarks](#benchmarks) below: measured on identical hardware, `kivo` 
 >
 > In this era of AI it's not about building new things whenever you get a chance to learn and explore — the part that is even harder is to keep concentrating on a project you started on one fine weekend evening. You can try so many things, to learn and to build, that the urge to keep switching from one to another is real — so is the burden of context switching in your head.
 >
-> I started a few projects (a simple timeseries db, an AI task planner, etc.) and they now all sit in incomplete states. It's not easy to manage time on weekends with three little ones, while also doing groceries and taking them out — you know, all the fam stuff. Ugh! Hence, I am really glad I could finish this one up.
+> I started a few projects (a simple timeseries db, an AI task planner, etc.) and they now all sit in incomplete states. It's not easy to manage time on weekends with three little ones, while also doing groceries and taking them out — you know, all the fam stuff. Hence, I am really glad I could finish this one up.
 >
 > I did the initial implementation as a couple of files, no `git init` or anything — just to try out whether it works. I added a bunch of things from time to time whenever I felt like it, but wasn't really doing it with the intention of setting up git and GitHub. Then one weekend I started polishing things up, to seriously try this single-node setup as a cache/storage, and to see if others can check it out too with a first fat commit.
 >
