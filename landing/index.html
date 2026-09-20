@@ -253,32 +253,26 @@ docker run -p 6379:6379 ghcr.io/itsmunim/kivo:latest</code></pre>
       <section class="code-section benchmarks" id="benchmarks">
         <div class="container">
           <h2>Benchmarks</h2>
-          <p><code>redis-benchmark</code>, 100,000 requests, 50 parallel clients. Both measured on the <strong>same machine</strong> (Apple M1 Pro) — kivo vs real Redis 8.10.1, back to back with identical commands. Full raw output in <a href="https://github.com/itsmunim/kivo/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">BENCHMARKS.md</a>.</p>
+          <p>Both <code>kivo</code> and a real Redis (<code>redis:7-alpine</code>) run as containers on the same Linux/arm64 Docker host, driven by identical <code>redis-benchmark</code> commands (300K requests, 50 parallel clients). CPU and memory sampled with <code>docker stats</code> during the runs; average of 3 rounds. <a href="https://github.com/itsmunim/kivo/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">BENCHMARKS.md</a> tells the full progression story.</p>
           <div class="table-wrap">
             <table class="bench-table">
               <thead>
-                <tr><th>Command</th><th>kivo (ops/sec)</th><th>Redis (ops/sec)</th><th>verdict</th></tr>
+                <tr><th>Operation</th><th>kivo (ops/sec)</th><th>Redis (ops/sec)</th><th>gap</th></tr>
               </thead>
               <tbody>
-                <tr><td><code>PING</code></td><td>83,701</td><td>81,638</td><td>kivo +3%</td></tr>
-                <tr><td><code>SET</code></td><td>83,217</td><td>78,526</td><td>kivo +6%</td></tr>
-                <tr><td><code>GET</code></td><td>84,703</td><td>84,934</td><td>parity</td></tr>
-                <tr><td><code>INCR</code></td><td>84,207</td><td>76,393</td><td>kivo +10%</td></tr>
-                <tr><td><code>LPUSH</code></td><td>77,386</td><td>78,304</td><td>parity</td></tr>
-                <tr><td><code>RPUSH</code></td><td>83,362</td><td>76,463</td><td>kivo +9%</td></tr>
-                <tr><td><code>LPOP</code></td><td>81,416</td><td>78,297</td><td>kivo +4%</td></tr>
-                <tr><td><code>RPOP</code></td><td>84,345</td><td>81,218</td><td>kivo +4%</td></tr>
-                <tr><td><code>SADD</code></td><td>83,820</td><td>84,865</td><td>parity</td></tr>
-                <tr><td><code>HSET</code></td><td>84,118</td><td>88,549</td><td>Redis +5%</td></tr>
-                <tr><td><code>SET</code> pipelined ×16</td><td>1,123,595</td><td>787,402</td><td><strong>kivo +43%</strong></td></tr>
-                <tr><td><code>GET</code> pipelined ×16</td><td>1,226,994</td><td>956,938</td><td><strong>kivo +28%</strong></td></tr>
+                <tr><td><code>GET</code></td><td>130,300</td><td>134,200</td><td>−3%</td></tr>
+                <tr><td><code>INCR</code></td><td>125,100</td><td>139,800</td><td>−11%</td></tr>
+                <tr><td><code>LPUSH</code></td><td>126,200</td><td>127,700</td><td>−1%</td></tr>
+                <tr><td><code>RPUSH</code></td><td>129,900</td><td>128,200</td><td><strong>+1%</strong></td></tr>
+                <tr><td><code>SET</code></td><td>116,700</td><td>129,200</td><td>−10%</td></tr>
+                <tr><td><code>Avg CPU</code></td><td>116.7%</td><td>54.2%</td><td>2.2x</td></tr>
+                <tr><td><code>Peak memory</code></td><td>57.6 MiB</td><td>17.7 MiB</td><td>3.3x</td></tr>
               </tbody>
             </table>
           </div>
           <div class="note">
-            <strong>Same machine, same commands.</strong> kivo matches or beats Redis on 11 of 12 benchmarks — including 28–43% faster pipelined throughput. <code>LPUSH</code> went from 4,196 to 77,386 ops/sec (18x) after moving lists to a ring-buffer deque.
+            <strong>Same host, same commands.</strong> kivo runs within 1–11% of Redis throughput on all core ops (RPUSH ahead), on real Linux containers. <code>LPUSH</code> went from 4,196 → 126,200 ops/sec after moving lists to a ring-buffer deque. The <a href="https://github.com/itsmunim/kivo/blob/main/BENCHMARKS.md" target="_blank" rel="noopener">benchmark notes</a> cover the full progression.
           </div>
-        </div>
       </section>
 
       <footer class="footer">

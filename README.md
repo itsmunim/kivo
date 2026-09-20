@@ -102,24 +102,19 @@ Disable it with `-webui=false`, or change the port with `-webui-addr=:8080`.
 
 ## Benchmarks
 
-Measured on the same machine (Apple M1 Pro, Darwin arm64) with `redis-benchmark` — 100,000 requests, 50 parallel clients, real Redis 8.10.1 running locally as the baseline. Same commands, same host, back to back. Full raw output: [BENCHMARKS.md](BENCHMARKS.md).
+Both `kivo` and a real Redis (redis:7-alpine) run as containers on the same Linux/arm64 Docker host, driven by identical `redis-benchmark` commands (300K requests, 50 parallel clients, ops `set,get,lpush,rpush,incr`); CPU and memory sampled via `docker stats` during the run. Average of 3 rounds. See [BENCHMARKS.md](BENCHMARKS.md) for the full progression story — naive baseline, the LPUSH/deque fix, and both macOS and Linux resource comparisons.
 
-| Command | kivo (ops/sec) | Redis (ops/sec) | verdict |
-|---------|---------------|-----------------|---------|
-| `PING` | 83,701 | 81,638 | kivo (+3%) |
-| `SET` | 83,217 | 78,526 | kivo (+6%) |
-| `GET` | 84,703 | 84,934 | ~parity |
-| `INCR` | 84,207 | 76,393 | **kivo (+10%)** |
-| `LPUSH` | 77,386 | 78,304 | ~parity |
-| `RPUSH` | 83,362 | 76,463 | **kivo (+9%)** |
-| `LPOP` | 81,416 | 78,297 | kivo (+4%) |
-| `RPOP` | 84,345 | 81,218 | kivo (+4%) |
-| `SADD` | 83,820 | 84,865 | ~parity |
-| `HSET` | 84,118 | 88,549 | Redis (+5%) |
-| `SET` pipelined (×16) | 1,123,595 | 787,402 | **kivo (+43%)** |
-| `GET` pipelined (×16) | 1,226,994 | 956,938 | **kivo (+28%)** |
+| op | kivo (ops/sec) | Redis (ops/sec) | gap |
+|----|---------------|-----------------|-----|
+| `GET` | 130,300 | 134,200 | −3% |
+| `INCR` | 125,100 | 139,800 | −11% |
+| `LPUSH` | 126,200 | 127,700 | −1% |
+| `RPUSH` | 129,900 | 128,200 | **+1%** |
+| `SET` | 116,700 | 129,200 | −10% |
+| **Avg CPU** | **116.7%** | **54.2%** | 2.2x |
+| **Peak memory** | **57.6 MiB** | **17.7 MiB** | 3.3x |
 
-**TL;DR:** on identical hardware, `kivo` matches or beats Redis on 11 of 12 benchmarks — including 28–43% faster pipelined throughput. The only Redis win is `HSET` at +5%. `LPUSH` went from 4,196 ops/sec to 77,386 ops/sec (18x) after switching lists from Go slices to a ring-buffer deque ([design notes](plans/perf-plan.md)).
+**TL;DR:** on the same Linux host, `kivo` runs within 1–11% of Redis throughput on all core ops (RPUSH actually ahead) — with the same caveat as any single-node store: it's also using ~2.2x the CPU and ~3.3x the memory today. `LPUSH` went from 4,196 → 126,200 ops/sec (the O(n²) slice-preprend → ring-buffer deque fix, [design notes](plans/perf-plan.md)).
 ## Architecture
 
 ```
