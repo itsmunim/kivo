@@ -18,8 +18,11 @@ permissions:
   packages: write
 
 jobs:
-  build-and-push:
+  # Single job computes the next version and creates the git tag once.
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump_version.outputs.new_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,6 +75,26 @@ jobs:
           git tag "${{ steps.bump_version.outputs.new_version }}"
           git push origin "${{ steps.bump_version.outputs.new_version }}"
 
+  # Build each arch natively (no QEMU), pushing to arch-suffixed tags.
+  build-and-push:
+    needs: version
+    name: build (${{ matrix.platform }})
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            suffix: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -82,17 +105,46 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push (arch-specific tag)
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
+          platforms: ${{ matrix.platform }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.new_version }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ needs.version.outputs.new_version }}-${{ matrix.suffix }}
+            ghcr.io/${{ github.repository }}:latest-${{ matrix.suffix }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Merge the per-arch tags into a single multi-arch index for the plain tags.
+  merge-manifest:
+    needs: [version, build-and-push]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest (version tag)
+        run: |
+          VERSION="${{ needs.version.outputs.new_version }}"
+          REPO="ghcr.io/${{ github.repository }}"
+          docker buildx imagetools create -t "$REPO:$VERSION" \
+            "$REPO:$VERSION-amd64" "$REPO:$VERSION-arm64"
+
+      - name: Create multi-arch manifest (latest)
+        run: |
+          REPO="ghcr.io/${{ github.repository }}"
+          docker buildx imagetools create -t "$REPO:latest" \
+            "$REPO:latest-amd64" "$REPO:latest-arm64"
+
       - name: Output image URL
         run: |
-          echo "Image pushed to: ghcr.io/${{ github.repository }}:${{ steps.bump_version.outputs.new_version }}"
+          echo "Multi-arch image: ghcr.io/${{ github.repository }}:${{ needs.version.outputs.new_version }}"
